@@ -16,11 +16,11 @@ import Team, { TeamMemberCard } from './components/Team';
 import Analytics from './components/Analytics';
 import Calendar from './components/Calendar';
 import NewProjectModal from './components/NewProjectModal';
-import PasscodeLock from './components/PasscodeLock';
 import NewClientModal from './components/NewClientModal';
 import Clients, { ClientCard } from './components/Clients';
 import ExcelDatabase from './components/ExcelDatabase';
 import NotificationBell from './components/NotificationBell';
+import { SignedIn, SignedOut, SignIn, UserButton, useUser } from '@clerk/clerk-react';
 
 const CLOUD_API_BASE = 'https://kv.pydantic.dev'; 
 const MASTER_DB_URL = 'https://docs.google.com/spreadsheets/d/1BTv0o0eufro8BOcuhJAkqZpGOfqr-L8fXVg2cUP0AjE/export?format=xlsx';
@@ -154,9 +154,8 @@ const App: React.FC = () => {
   useEffect(() => { teamRef.current = team; }, [team]);
   useEffect(() => { clientsRef.current = clients; }, [clients]);
   
-  // Persistent Unlock State (Requirement: Lock active on fresh load)
+  const { user } = useUser();
   const [isFinancialsUnlocked, setIsFinancialsUnlocked] = useState(false);
-  const [showPasscodeModal, setShowPasscodeModal] = useState(false);
   const [financialMonth, setFinancialMonth] = useState(new Date());
   const [isMobileStacked, setIsMobileStacked] = useState(false);
 
@@ -608,7 +607,6 @@ const App: React.FC = () => {
   const handleUnlockSuccess = () => {
     setIsFinancialsUnlocked(true);
     localStorage.setItem('mmr_unlocked', 'true');
-    setShowPasscodeModal(false);
   };
 
   const handleLockState = () => {
@@ -710,8 +708,16 @@ const App: React.FC = () => {
   ];
 
   return (
-    <div className="h-screen flex flex-col bg-[#F8FAFC] text-slate-900 overflow-hidden font-sans">
-      <header className="bg-white border-b px-4 md:px-6 py-2 flex flex-col md:flex-row md:items-center justify-between z-[60] shrink-0 md:h-16 shadow-sm gap-2 md:gap-0">
+    <>
+      <SignedOut>
+        <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
+           <SignIn fallbackRedirectUrl="/" />
+        </div>
+      </SignedOut>
+
+      <SignedIn>
+        <div className="h-screen flex flex-col bg-[#F8FAFC] text-slate-900 overflow-hidden font-sans">
+          <header className="bg-white border-b px-4 md:px-6 py-2 flex flex-col md:flex-row md:items-center justify-between z-[60] shrink-0 md:h-16 shadow-sm gap-2 md:gap-0">
         <div className="flex items-center justify-between w-full md:w-auto md:gap-8">
           <div className="flex flex-col leading-none cursor-pointer group" onClick={() => setActiveTab('Board')}>
             <span className="text-base font-black tracking-tighter text-slate-900 uppercase">Make My</span>
@@ -749,10 +755,19 @@ const App: React.FC = () => {
             <span className="uppercase tracking-widest hidden xl:inline">{hasConfigMismatch ? 'Setup Required' : scriptUrl ? 'Cloud Bridge Connected' : 'Sync Engine'}</span>
           </button>
 
-          <button onClick={() => isFinancialsUnlocked ? handleLockState() : setShowPasscodeModal(true)} className={`flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-lg font-black text-[10px] transition-all shadow-sm shrink-0 ${isFinancialsUnlocked ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-900 text-white hover:bg-black'}`}>
+          <button onClick={() => isFinancialsUnlocked ? handleLockState() : handleUnlockSuccess()} className={`flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-lg font-black text-[10px] transition-all shadow-sm shrink-0 ${isFinancialsUnlocked ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-900 text-white hover:bg-black'}`}>
             {isFinancialsUnlocked ? <EyeOff size={12} /> : <Lock size={12} />}
             <span className="uppercase tracking-widest hidden lg:inline">{isFinancialsUnlocked ? 'Unlocked Session' : 'Unlock Access'}</span>
           </button>
+
+          <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+            <UserButton afterSignOutUrl="/" />
+            {user?.firstName && (
+              <span className="text-xs font-semibold text-slate-700 hidden lg:inline">
+                {user.firstName}
+              </span>
+            )}
+          </div>
           
           <button onClick={() => setIsNewProjectModalOpen(true)} className="bg-[#4F46E5] text-white px-4 md:px-5 py-2 rounded-lg font-black shadow-lg hover:bg-[#3f38c2] transition-all text-[10px] uppercase tracking-widest shrink-0">
             New Project
@@ -786,7 +801,7 @@ const App: React.FC = () => {
           >
             <Instagram size={18} />
           </a>
-          <div className="flex items-center gap-4 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 cursor-pointer shrink-0" onClick={() => !isFinancialsUnlocked && setShowPasscodeModal(true)}>
+          <div className="flex items-center gap-4 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 cursor-pointer shrink-0" onClick={() => !isFinancialsUnlocked && handleUnlockSuccess()}>
             <div className="flex flex-col">
               <span className="text-[7px] text-slate-400 uppercase tracking-widest font-black leading-none mb-1">{stats.month} Revenue</span>
               <span className={`text-[11px] font-black text-slate-900 tabular-nums ${!isFinancialsUnlocked ? 'blur-[4px] select-none' : ''}`}>₹{stats.revenue.toLocaleString()}</span>
@@ -809,7 +824,7 @@ const App: React.FC = () => {
       </div>
 
       <main className="flex-1 relative overflow-hidden bg-[#F4F5F7]">
-        {activeTab === 'Board' && <Board projects={filteredProjects} team={activeTeam} clients={activeClients} onProjectUpdate={onProjectUpdate} onProjectDelete={onProjectDelete} onEditProject={setEditingProject} onCreateProjectWithStatus={(status) => { setInitialProjectStatus(status); setIsNewProjectModalOpen(true); }} isFinancialsUnlocked={isFinancialsUnlocked} onRequestUnlock={() => setShowPasscodeModal(true)} onPreviewMember={setPreviewMember} onClientClick={(clientId) => { const client = activeClients.find(c => c.id === clientId); if (client) { setPreviewClient(client); } }} isMobileStacked={isMobileStacked} />}
+        {activeTab === 'Board' && <Board projects={filteredProjects} team={activeTeam} clients={activeClients} onProjectUpdate={onProjectUpdate} onProjectDelete={onProjectDelete} onEditProject={setEditingProject} onCreateProjectWithStatus={(status) => { setInitialProjectStatus(status); setIsNewProjectModalOpen(true); }} isFinancialsUnlocked={isFinancialsUnlocked} onRequestUnlock={handleUnlockSuccess} onPreviewMember={setPreviewMember} onClientClick={(clientId) => { const client = activeClients.find(c => c.id === clientId); if (client) { setPreviewClient(client); } }} isMobileStacked={isMobileStacked} />}
         {activeTab === 'Calendar' && <Calendar projects={activeProjects} onCreateProject={() => setIsNewProjectModalOpen(true)} onEditProject={(id) => setEditingProject(projects.find(p => p.id === id) || null)} />}
         {activeTab === 'Clients' && <Clients clients={activeClients} projects={activeProjects} team={activeTeam} onAddClient={() => setIsNewClientModalOpen(true)} onUpdateClient={(c) => updateClients(clients.map(old => old.id === c.id ? {...c, updatedAt: Date.now()} : old), `Updated Client: ${c.company}`)} onDeleteClient={(id) => updateClients(clients.map(c => c.id === id ? { ...c, isDeleted: true, updatedAt: Date.now() } : c), `Deleted Client ID: ${id}`)} onEditProject={setEditingProject} onDeleteProject={onProjectDelete} onPreviewMember={setPreviewMember} editingClient={editingClient} setEditingClient={setEditingClient} isFinancialsUnlocked={isFinancialsUnlocked} globalSearchQuery={searchQuery} />}
         {activeTab === 'Team' && <Team team={activeTeam} projects={activeProjects} teamRoles={teamRoles} onAddMember={(m) => updateTeam([...team, {...m, updatedAt: Date.now()}], `Added Team Member: ${m.name}`)} onDeleteMember={(id) => updateTeam(team.map(m => m.id === id ? { ...m, isDeleted: true, updatedAt: Date.now() } : m), `Deleted Team Member ID: ${id}`)} onUpdateMember={(updated) => updateTeam(team.map(m => m.id === updated.id ? {...updated, updatedAt: Date.now()} : m), `Updated Team Member: ${updated.name}`)} onUpdateMemberTags={(id, tags) => updateTeam(team.map(m => m.id === id ? {...m, tags, updatedAt: Date.now()} : m), `Updated Tags for Team Member ID: ${id}`)} onUpdateMemberNotes={(id, notes) => updateTeam(team.map(m => m.id === id ? {...m, onboardingNotes: notes, updatedAt: Date.now()} : m), `Updated Notes for Team Member ID: ${id}`)} onEditProject={setEditingProject} isFinancialsUnlocked={isFinancialsUnlocked} whatsappMember={null} setWhatsappMember={() => {}} memberForTags={memberForTags} setMemberForTags={setMemberForTags} onGlobalUnlock={handleUnlockSuccess} globalSearchQuery={searchQuery} />}
@@ -910,7 +925,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {showPasscodeModal && <PasscodeLock onUnlock={handleUnlockSuccess} onClose={() => setShowPasscodeModal(false)} correctPasscode={PASSCODE} />}
       {isNewProjectModalOpen && <NewProjectModal isOpen={isNewProjectModalOpen} onClose={() => { setIsNewProjectModalOpen(false); setInitialProjectStatus(undefined); }} initialStatus={initialProjectStatus} team={team} clients={clients} projects={projects} onAddProject={(p) => updateProjects([{...p, updatedAt: Date.now()}, ...projects], `Created Project: ${p.title}`)} />}
       {editingProject && <EditProjectModal project={editingProject} team={team} clients={clients} projects={projects} onClose={() => setEditingProject(null)} onUpdate={(updated) => { onProjectUpdate(updated); setEditingProject(null); }} isUnlocked={isFinancialsUnlocked} />}
       {isNewClientModalOpen && <NewClientModal isOpen={isNewClientModalOpen} onClose={() => setIsNewClientModalOpen(false)} onAddClient={(c) => updateClients([{...c, updatedAt: Date.now()}, ...clients], `Added Client: ${c.company}`)} />}
@@ -959,6 +973,8 @@ const App: React.FC = () => {
         </div>
       )}
     </div>
+    </SignedIn>
+    </>
   );
 };
 
