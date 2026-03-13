@@ -1,0 +1,5 @@
+{
+  "name": "Make My Reels Dashboard",
+  "description": "A comprehensive project management dashboard for creative teams featuring Kanban boards, team analytics, interactive calendars, and budget tracking with a secure 6-digit passcode lock.",
+  "requestFramePermissions": ["notifications"]
+}
