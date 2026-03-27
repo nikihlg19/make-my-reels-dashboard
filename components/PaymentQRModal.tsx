@@ -32,7 +32,7 @@ const PaymentQRModal: React.FC<PaymentQRModalProps> = ({ onClose }) => {
 
         <div className="bg-[#141414] p-6 rounded-2xl border border-slate-800 w-full aspect-square flex items-center justify-center overflow-hidden shadow-inner">
           <QRCodeSVG
-            value="upi://pay?pa=nikhil.gandham@ybl&pn=Nikhil%20Gandham"
+            value={import.meta.env.VITE_UPI_ADDRESS || 'upi://pay?pa=nikhil.gandham@ybl&pn=Nikhil%20Gandham'}
             size={256}
             bgColor="#141414"
             fgColor="#ffffff"
