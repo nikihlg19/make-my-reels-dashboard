@@ -116,9 +116,11 @@ export const CandidateRankingList: React.FC<CandidateRankingListProps> = ({
                 <ChevronDown size={14} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
               </button>
 
-              {/* Assign button */}
+              {/* Send button */}
               {isAssigned ? (
-                <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest shrink-0">Assigned</span>
+                <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest shrink-0 flex items-center gap-1">
+                  <CheckCircle size={10} />Sent ✓
+                </span>
               ) : (
                 <button
                   type="button"
@@ -126,11 +128,12 @@ export const CandidateRankingList: React.FC<CandidateRankingListProps> = ({
                   onClick={() => onAssign(c)}
                   className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all shrink-0 ${
                     unavailable ? 'bg-slate-100 text-slate-300 cursor-not-allowed' :
-                    'bg-indigo-600 hover:bg-indigo-700 text-white active:scale-95 disabled:opacity-50'
+                    isAssigning ? 'bg-emerald-500 text-white opacity-70 cursor-wait' :
+                    'bg-[#25D366] hover:bg-[#1ebe5d] text-white active:scale-95'
                   }`}
                 >
                   <Send size={9} />
-                  {isAssigning ? '...' : 'Assign'}
+                  {isAssigning ? 'Sending...' : 'Send'}
                 </button>
               )}
             </div>

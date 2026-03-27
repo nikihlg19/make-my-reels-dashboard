@@ -21,8 +21,11 @@ export interface AssignmentRequestParams {
   shootTime: string;
   location: string;
   role: string;
-  /** Assignment UUID — embedded in button payloads so the webhook can resolve it */
   assignmentId: string;
+  /** Secure URL the team member taps to accept */
+  acceptUrl: string;
+  /** Secure URL the team member taps to decline */
+  declineUrl: string;
 }
 
 export interface SendResult {
@@ -47,24 +50,23 @@ export async function sendAssignmentRequest(params: AssignmentRequestParams): Pr
     callbackData: `assignment:${params.assignmentId}`,
     type: 'Template',
     template: {
-      name: 'assignment_request',   // Must be pre-approved in Meta Business Manager
+      name: 'assignment_request_v2',   // URL-based accept/decline (no webhook needed)
       languageCode: 'en',
       bodyValues: [
-        params.memberName,
-        params.projectTitle,
-        params.shootDate,
-        params.shootTime,
-        params.location,
-        params.role,
+        params.memberName,      // {{1}}
+        params.projectTitle,    // {{2}}
+        params.shootDate,       // {{3}}
+        params.shootTime,       // {{4}}
+        params.location,        // {{5}}
+        params.role,            // {{6}}
+        params.acceptUrl,       // {{7}}
+        params.declineUrl,      // {{8}}
       ],
-      // Button payloads encode action + assignmentId so the webhook can act on them
-      buttonValues: {
-        '0': [`accept_${params.assignmentId}`],
-        '1': [`reject_${params.assignmentId}`],
-      },
     },
   };
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 6000);
   try {
     const res = await fetch(BSP_API_URL, {
       method: 'POST',
@@ -73,6 +75,7 @@ export async function sendAssignmentRequest(params: AssignmentRequestParams): Pr
         Authorization: `Basic ${BSP_API_KEY}`,
       },
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
 
     const data = await res.json();
@@ -86,8 +89,11 @@ export async function sendAssignmentRequest(params: AssignmentRequestParams): Pr
     // Interakt returns { result: true, id: "..." }
     return { success: true, messageId: data?.id || data?.messageId };
   } catch (err: any) {
-    console.error('[whatsapp] sendAssignmentRequest exception:', err);
-    return { success: false, error: err.message };
+    const isTimeout = err.name === 'AbortError';
+    console.error('[whatsapp] sendAssignmentRequest', isTimeout ? 'timed out' : 'exception:', isTimeout ? '' : err.message);
+    return { success: false, error: isTimeout ? 'timeout' : err.message };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -125,6 +131,8 @@ export async function sendAssignmentConfirmation(params: {
     },
   };
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 6000);
   try {
     const res = await fetch(BSP_API_URL, {
       method: 'POST',
@@ -133,12 +141,15 @@ export async function sendAssignmentConfirmation(params: {
         Authorization: `Basic ${BSP_API_KEY}`,
       },
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
     const data = await res.json();
     if (!res.ok) return { success: false, error: data?.message || `HTTP ${res.status}` };
     return { success: true, messageId: data?.id };
   } catch (err: any) {
-    return { success: false, error: err.message };
+    return { success: false, error: err.name === 'AbortError' ? 'timeout' : err.message };
+  } finally {
+    clearTimeout(timer);
   }
 }
 

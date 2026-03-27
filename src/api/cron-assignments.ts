@@ -27,7 +27,7 @@ export default async function handler(req: any, res: any) {
   // Find expired assignments
   const { data: expired, error } = await supabaseAdmin
     .from('project_assignments')
-    .select('id, project_id, team_member_id, role_needed, auto_expire_at')
+    .select('id, project_id, team_member_id, role_needed, auto_expire_at, assignment_group_id')
     .eq('status', 'wa_sent')
     .lt('auto_expire_at', new Date().toISOString());
 

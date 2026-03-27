@@ -17,6 +17,7 @@ export interface RankedCandidate {
   member: {
     id: string;
     name: string;
+    phone: string;
     role: string | string[];
     color: string;
     avatar: string;

@@ -70,7 +70,7 @@ export default async function handler(req: any, res: any) {
   // --- Fetch assignment ---
   const { data: assignment, error: fetchErr } = await supabaseAdmin
     .from('project_assignments')
-    .select('id, status, project_id, team_member_id, role_needed')
+    .select('id, status, project_id, team_member_id, role_needed, assignment_group_id')
     .eq('id', assignmentId)
     .single();
 

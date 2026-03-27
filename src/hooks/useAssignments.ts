@@ -100,18 +100,26 @@ export function useAssignments(projectIds?: string[]): UseAssignmentsResult {
     if (!session) return { success: false, error: 'Not authenticated' };
     const token = await session.getToken();
 
-    const res = await fetch('/api/assignment/create', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ projectId, teamMemberId, roleNeeded }),
-    });
-
-    const data = await res.json();
-    if (!res.ok) return { success: false, error: data.error || 'Request failed' };
-    return { success: true };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    try {
+      const res = await fetch('/api/assignment/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ projectId, teamMemberId, roleNeeded }),
+        signal: controller.signal,
+      });
+      const data = await res.json();
+      if (!res.ok) return { success: false, error: data.error || 'Request failed' };
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.name === 'AbortError' ? 'Request timed out' : err.message };
+    } finally {
+      clearTimeout(timer);
+    }
   }, [session]);
 
   const cancelAssignment = useCallback(async (

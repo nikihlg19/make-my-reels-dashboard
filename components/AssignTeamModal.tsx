@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Users, RefreshCw, ChevronDown } from 'lucide-react';
-import type { Project, TeamMember } from '../types';
+import type { Project } from '../types';
 import { useCandidateRanking } from '../src/hooks/useCandidateRanking';
 import { useAssignments } from '../src/hooks/useAssignments';
 import { CandidateRankingList } from './CandidateRankingList';
@@ -8,13 +8,14 @@ import type { RankedCandidate } from '../src/hooks/useCandidateRanking';
 
 const ROLES = ['Videographer', 'Photographer', 'Editor', 'Sales', 'Marketing', 'Reelographer'];
 
+
 interface AssignTeamModalProps {
   project: Project;
-  team: TeamMember[];
+  team?: unknown[];
   onClose: () => void;
 }
 
-export const AssignTeamModal: React.FC<AssignTeamModalProps> = ({ project, team, onClose }) => {
+export const AssignTeamModal: React.FC<AssignTeamModalProps> = ({ project, onClose }) => {
   const [selectedRole, setSelectedRole] = useState(ROLES[0]);
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [successIds, setSuccessIds] = useState<string[]>([]);
@@ -31,7 +32,9 @@ export const AssignTeamModal: React.FC<AssignTeamModalProps> = ({ project, team,
   const handleAssign = async (candidate: RankedCandidate) => {
     setAssigningId(candidate.member.id);
     const result = await sendRequest(project.id, candidate.member.id, selectedRole);
-    if (result.success) setSuccessIds(prev => [...prev, candidate.member.id]);
+    if (result.success) {
+      setSuccessIds(prev => [...prev, candidate.member.id]);
+    }
     setAssigningId(null);
   };
 
