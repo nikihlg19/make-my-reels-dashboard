@@ -9,8 +9,9 @@ export const INITIAL_CLIENTS: Client[] = [];
 
 export const INITIAL_EVENTS: CalendarEvent[] = [];
 
-export const PASSCODE = '123456';
-export const DELETE_PIN = '0000';
+// Logistics Configurations
+export const MILEAGE_RATE_PER_KM = Number(import.meta.env.VITE_MILEAGE_RATE_PER_KM) || 10; // Rupees per km
+export const ADMIN_PHONE = import.meta.env.VITE_ADMIN_PHONE || '919603663435';
 
 export const parseTime = (timeVal: any): string | undefined => {
   if (timeVal === null || timeVal === undefined || timeVal === '') return undefined;
@@ -34,7 +35,7 @@ export const parseTime = (timeVal: any): string | undefined => {
   }
 
   if (timeVal instanceof Date) {
-    return `${String(timeVal.getUTCHours()).padStart(2, '0')}:${String(timeVal.getUTCMinutes()).padStart(2, '0')}`;
+    return `${String(timeVal.getHours()).padStart(2, '0')}:${String(timeVal.getMinutes()).padStart(2, '0')}`;
   }
 
   if (typeof timeVal === 'number') {
@@ -132,7 +133,8 @@ export const formatDisplayDate = (dateStr: string | undefined): string => {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${day}-${month}-${year}`; // Consistent DD-MM-YYYY format
-  } catch {
+  } catch (e) {
+    console.error('Date parse error for', dateStr, e);
     return dateStr;
   }
 };

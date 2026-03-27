@@ -7,6 +7,7 @@ interface NewClientModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddClient: (client: Client) => void;
+  existingClients?: Client[];
 }
 
 const AVATAR_COLORS = [
@@ -14,7 +15,7 @@ const AVATAR_COLORS = [
   'bg-violet-600', 'bg-cyan-500', 'bg-pink-500', 'bg-orange-500'
 ];
 
-const NewClientModal: React.FC<NewClientModalProps> = ({ isOpen, onClose, onAddClient }) => {
+const NewClientModal: React.FC<NewClientModalProps> = ({ isOpen, onClose, onAddClient, existingClients = [] }) => {
   const [formData, setFormData] = useState({
     name: '',
     company: '',
@@ -22,21 +23,46 @@ const NewClientModal: React.FC<NewClientModalProps> = ({ isOpen, onClose, onAddC
     phone: '',
     notes: ''
   });
+  const [duplicateWarning, setDuplicateWarning] = useState('');
 
   if (!isOpen) return null;
 
   const getInitials = (name: string) => {
     return name
-      .split(' ')
+      .replace(/[^a-zA-Z\s]/g, '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
       .map(part => part.charAt(0).toUpperCase())
       .slice(0, 2)
       .join('');
   };
 
+  const checkDuplicate = (phone: string, email: string): string => {
+    const normalizedPhone = phone.replace(/\D/g, '').slice(-10);
+    for (const c of existingClients) {
+      const existingPhone = (c.phone || '').replace(/\D/g, '').slice(-10);
+      if (normalizedPhone && existingPhone === normalizedPhone) {
+        return `A client with phone ${phone} already exists (${c.name || c.company}).`;
+      }
+      if (email && c.email && c.email.toLowerCase() === email.toLowerCase()) {
+        return `A client with email ${email} already exists (${c.name || c.company}).`;
+      }
+    }
+    return '';
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const warning = checkDuplicate(formData.phone, formData.email);
+    if (warning) {
+      setDuplicateWarning(warning);
+      return;
+    }
+
     const colorIndex = Math.floor(Math.random() * AVATAR_COLORS.length);
-    
+
     const newClient: Client = {
       id: Math.random().toString(36).substr(2, 9),
       name: formData.name,
@@ -105,8 +131,11 @@ const NewClientModal: React.FC<NewClientModalProps> = ({ isOpen, onClose, onAddC
               <div className="relative">
                 <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
                 <input 
-                  required 
-                  className="w-full pl-10 pr-4 py-3 border-2 border-slate-100 rounded-xl bg-slate-50 font-bold text-xs outline-none focus:border-indigo-500 transition-all" 
+                  required
+                  minLength={10}
+                  pattern="[0-9]{10}"
+                  title="Phone number must be exactly 10 digits"
+                  className="w-full pl-10 pr-4 py-3 border-2 border-slate-100 rounded-xl bg-slate-50 font-bold text-xs outline-none focus:border-indigo-500 transition-all"
                   placeholder="9876543210"
                   value={formData.phone}
                   onChange={e => setFormData({...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10)})}
@@ -141,9 +170,19 @@ const NewClientModal: React.FC<NewClientModalProps> = ({ isOpen, onClose, onAddC
             </div>
           </div>
 
+          {duplicateWarning && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 font-bold flex items-start gap-2">
+              <span className="shrink-0 mt-0.5">⚠️</span>
+              <div>
+                <p>{duplicateWarning}</p>
+                <button type="button" onClick={() => setDuplicateWarning('')} className="text-amber-600 underline mt-1">Dismiss and add anyway</button>
+              </div>
+            </div>
+          )}
+
           <div className="pt-4 flex gap-4">
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:bg-black transition-all active:scale-95 flex items-center justify-center gap-2"
             >
               <Check size={16} /> Confirm

@@ -1,0 +1,46 @@
+PRODUCTION DEPLOYMENT CHECKLIST
+================================
+Last updated: 2026-03-25
+
+PRE-DEPLOYMENT (Before going live)
+-----------------------------------
+[x] 1. Rotate all exposed API keys — DONE 2026-03-24
+        - Supabase anon key + service role key      ROTATED
+        - Clerk publishable key + secret key        ROTATED
+        - Google Maps API key                       ROTATED
+        - Razorpay key secret                       ROTATED
+        - VAPID keys                                ROTATED
+
+[ ] 2. Set all env vars in Vercel
+        (Every key in .env must be added to Vercel → Settings → Environment Variables)
+
+[ ] 3. Restrict Google Maps API key to production domain in Google Cloud Console
+        (Google Cloud Console → APIs → Credentials → your key → Application restrictions → HTTP referrers → add yourdomain.com/*)
+
+[ ] 4. Add production URL to Clerk dashboard → Domains
+
+[ ] 5. Add production URL to Supabase → Auth → URL Configuration (Site URL + Redirect URLs)
+
+
+RIGHT AFTER FIRST DEPLOYMENT
+------------------------------
+[ ] 6. Authorize Google Calendar in Apps Script
+        - Open Apps Script editor
+        - Select syncProjectsToCalendar from dropdown → Run → Grant Calendar permissions
+        - Fixes "Calendar Error" in Logs sheet. One-time only.
+
+[ ] 7. Update Logs sheet Row 1 headers manually to:
+        Timestamp | User | UserEmail | IsAdmin | Action | Fields | Status | Details
+        (Fields column was added — old sheet has only 7 columns)
+
+[x] 8. Deploy new GAS version — DONE 2026-03-25
+        URL: https://script.google.com/macros/s/AKfycbyJbtqUpI2lh6crcWgR5gpVMJ4gaX9Lj_e9qnP9O2Ef3ObEahgs9MZ4yR3ClupgSTTK/exec
+
+[ ] 9. Test Web Push notifications end-to-end in production browser
+
+[ ] 10. Replace YOUR_GOOGLE_DRIVE_FOLDER_ID in GAS code with a real Drive folder ID
+
+[ ] 11. Add Time-driven triggers in Apps Script
+        - checkPendingAndNotify      → Every 1 hour
+        - checkAndSendNotifications  → Every 1 hour
+        - backupDatabase             → Daily

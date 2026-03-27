@@ -16,8 +16,10 @@ export interface RazorpayOptions {
   };
 }
 
+let razorpayLoadPromise: Promise<boolean> | null = null;
 const loadRazorpayScript = () => {
-  return new Promise((resolve) => {
+  if (razorpayLoadPromise) return razorpayLoadPromise;
+  razorpayLoadPromise = new Promise<boolean>((resolve) => {
     if ((window as any).Razorpay) {
       resolve(true);
       return;
@@ -25,9 +27,10 @@ const loadRazorpayScript = () => {
     const script = document.createElement('script');
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
     script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
+    script.onerror = () => { razorpayLoadPromise = null; resolve(false); };
     document.body.appendChild(script);
   });
+  return razorpayLoadPromise;
 };
 
 export const initiatePayment = async (
@@ -61,7 +64,7 @@ export const initiatePayment = async (
       key: import.meta.env.VITE_RAZORPAY_KEY_ID || '', // Enter the Key ID generated from the Dashboard
       amount: orderData.amount, // Amount is in currency subunits. Default currency is INR. Hence, 50000 refers to 50000 paise
       currency: orderData.currency,
-      name: "Make My Reels",
+      name: import.meta.env.VITE_COMPANY_NAME || "Make My Reels",
       description: "Project Payment",
       order_id: orderData.id,
       handler: function (response: any) {
@@ -69,7 +72,7 @@ export const initiatePayment = async (
       },
       prefill: {
         name: clientDetails.name,
-        email: clientDetails.email || 'billing@makemyreels.in',
+        email: clientDetails.email || import.meta.env.VITE_BILLING_EMAIL || 'billing@makemyreels.in',
         contact: clientDetails.phone,
       },
       theme: {

@@ -111,7 +111,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ team, projects, clients = [], dat
       }
 
       // Split revenue equally among clients
-      const splitRevenue = (p.budget || 0) / clientIds.length;
+      const splitRevenue = clientIds.length > 0 ? (p.budget || 0) / clientIds.length : 0;
 
       clientIds.forEach(clientId => {
         let clientName = clientId;
@@ -230,7 +230,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ team, projects, clients = [], dat
                 <Tooltip 
                   cursor={{ fill: '#f8fafc' }}
                   contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)', fontWeight: 700, fontSize: '12px' }}
-                  formatter={(value: number) => [`₹${value.toLocaleString()}`, undefined]}
+                  formatter={(value: any) => [`₹${Math.max(0, Number(value) || 0).toLocaleString()}`, undefined] as any}
                 />
                 <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', paddingTop: '20px' }} />
                 <Bar dataKey="revenue" name="Revenue" fill="#4f46e5" radius={[4, 4, 0, 0]} maxBarSize={40} />
@@ -297,7 +297,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ team, projects, clients = [], dat
                 <Tooltip 
                   cursor={{ fill: '#f8fafc' }}
                   contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)', fontWeight: 700, fontSize: '12px' }}
-                  formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Revenue']}
+                  formatter={(value: any) => [`₹${value?.toLocaleString()}`, 'Revenue'] as any}
                 />
                 <Bar dataKey="revenue" name="Revenue" fill="#10b981" radius={[0, 4, 4, 0]} maxBarSize={30}>
                   {clientData.map((entry, index) => (
@@ -352,7 +352,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ team, projects, clients = [], dat
                   >
                     <td className="px-8 py-6">
                       <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-[18px] flex items-center justify-center font-black text-white shadow-lg transition-transform group-hover:scale-110 ${member.color || 'bg-slate-900'}`}>{member.avatar}</div>
+                        <div className={`w-12 h-12 rounded-[18px] flex items-center justify-center font-black text-white shadow-lg transition-transform group-hover:scale-110 ${member.color || 'bg-slate-900'}`}>{(member.avatar || '').replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase()}</div>
                         <div>
                           <div className="font-black text-slate-800 uppercase tracking-tight text-sm">{member.name}</div>
                           <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{Array.isArray(member.role) ? member.role[0] : member.role}</div>

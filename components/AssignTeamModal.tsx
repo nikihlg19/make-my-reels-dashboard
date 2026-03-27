@@ -1,0 +1,136 @@
+import React, { useState, useEffect } from 'react';
+import { X, Users, RefreshCw, ChevronDown } from 'lucide-react';
+import type { Project, TeamMember } from '../types';
+import { useCandidateRanking } from '../src/hooks/useCandidateRanking';
+import { useAssignments } from '../src/hooks/useAssignments';
+import { CandidateRankingList } from './CandidateRankingList';
+import type { RankedCandidate } from '../src/hooks/useCandidateRanking';
+
+const ROLES = ['Videographer', 'Photographer', 'Editor', 'Sales', 'Marketing', 'Reelographer'];
+
+interface AssignTeamModalProps {
+  project: Project;
+  team: TeamMember[];
+  onClose: () => void;
+}
+
+export const AssignTeamModal: React.FC<AssignTeamModalProps> = ({ project, team, onClose }) => {
+  const [selectedRole, setSelectedRole] = useState(ROLES[0]);
+  const [assigningId, setAssigningId] = useState<string | null>(null);
+  const [successIds, setSuccessIds] = useState<string[]>([]);
+  const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
+
+  const { candidates, assignmentGroupId, loading, error, fetchCandidates } = useCandidateRanking();
+  const { sendRequest, getAssignmentsForProject } = useAssignments([project.id]);
+  const existingAssignments = getAssignmentsForProject(project.id);
+
+  useEffect(() => {
+    fetchCandidates(project.id, selectedRole);
+  }, [project.id, selectedRole]);
+
+  const handleAssign = async (candidate: RankedCandidate) => {
+    setAssigningId(candidate.member.id);
+    const result = await sendRequest(project.id, candidate.member.id, selectedRole);
+    if (result.success) setSuccessIds(prev => [...prev, candidate.member.id]);
+    setAssigningId(null);
+  };
+
+  const assignedMemberIds = existingAssignments
+    .filter(a => ['accepted', 'wa_sent', 'pending'].includes(a.status))
+    .map(a => a.teamMemberId);
+
+  const allAssignedIds = [...new Set([...successIds, ...assignedMemberIds])];
+
+  return (
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+      <div className="bg-white rounded-[32px] w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-8 duration-400">
+
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b shrink-0">
+          <div>
+            <h2 className="text-base font-black uppercase tracking-tighter text-slate-800">Smart Assign</h2>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 truncate max-w-[280px]">{project.title}</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-2xl hover:bg-slate-100 text-slate-400 transition-all">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Role selector */}
+        <div className="p-4 border-b shrink-0">
+          <div className="flex items-center gap-3">
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0">Role Needed</label>
+            <div className="relative flex-1">
+              <button
+                type="button"
+                onClick={() => setRoleDropdownOpen(v => !v)}
+                className="w-full flex items-center justify-between bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-700"
+              >
+                {selectedRole}
+                <ChevronDown size={12} className={`transition-transform ${roleDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {roleDropdownOpen && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-100 rounded-xl shadow-lg z-10 overflow-hidden">
+                  {ROLES.map(r => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => { setSelectedRole(r); setRoleDropdownOpen(false); }}
+                      className={`w-full text-left px-3 py-2 text-[9px] font-black uppercase tracking-widest transition-colors ${r === selectedRole ? 'bg-indigo-600 text-white' : 'hover:bg-slate-50 text-slate-700'}`}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => fetchCandidates(project.id, selectedRole, assignmentGroupId || undefined)}
+              className="p-2 rounded-xl text-slate-400 hover:bg-slate-50 transition-all"
+              title="Refresh rankings"
+            >
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            </button>
+          </div>
+        </div>
+
+        {/* Candidate list */}
+        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3 text-slate-300">
+              <RefreshCw size={24} className="animate-spin" />
+              <p className="text-[9px] font-black uppercase tracking-widest">Ranking candidates...</p>
+            </div>
+          ) : error ? (
+            <div className="text-center py-8 text-rose-400">
+              <p className="text-[10px] font-black uppercase">{error}</p>
+            </div>
+          ) : (
+            <CandidateRankingList
+              candidates={candidates}
+              onAssign={handleAssign}
+              assigningId={assigningId}
+              alreadyAssignedIds={allAssignedIds}
+            />
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t shrink-0 flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-slate-400">
+            <Users size={12} />
+            <span className="text-[9px] font-black uppercase tracking-widest">{candidates.length} candidates</span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-5 py-2 rounded-xl bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};

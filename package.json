@@ -10,23 +10,37 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@clerk/clerk-react": "^5.61.3",
-    "@google/genai": "^1.44.0",
-    "@pinecone-database/pinecone": "^7.1.0",
+    "@clerk/backend": "^3.2.0",
+    "@clerk/react": "^6.1.2",
+    "@hookform/resolvers": "^5.2.2",
     "@sentry/react": "^10.43.0",
     "@sentry/vite-plugin": "^5.1.1",
     "@supabase/supabase-js": "^2.99.1",
+    "@tanstack/react-query": "^5.90.21",
     "date-fns": "^4.1.0",
+    "framer-motion": "^12.38.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.563.0",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
+    "react-hook-form": "^7.71.2",
+    "react-router-dom": "^7.13.1",
     "recharts": "^3.7.0",
-    "xlsx": "0.18.5"
+    "sonner": "^2.0.7",
+    "web-push": "^3.6.7",
+    "xlsx": "0.18.5",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.2.2",
     "@types/node": "^22.14.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/web-push": "^3.6.4",
     "@vitejs/plugin-react": "^5.0.0",
+    "tailwindcss": "^4.2.2",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }

@@ -1,0 +1,183 @@
+/**
+ * GET /api/cron-daily-digest
+ * Auth: CRON_SECRET
+ * Schedule: 0 2 * * *  (8 AM IST = 02:30 UTC, we use 02:00 for a slight buffer)
+ *
+ * Generates a daily admin intelligence digest and stores it in admin_digests.
+ * Also sends a WhatsApp summary to every admin who has a phone number.
+ */
+
+import { createClient } from '@supabase/supabase-js';
+import { format, startOfDay, endOfDay, subDays, parseISO } from 'date-fns';
+
+const supabaseAdmin = createClient(
+  process.env.VITE_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+export default async function handler(req: any, res: any) {
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret || req.headers.authorization !== `Bearer ${cronSecret}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const now = new Date();
+  const todayStr = format(now, 'yyyy-MM-dd');
+  const todayStart = startOfDay(now).toISOString();
+  const todayEnd = endOfDay(now).toISOString();
+
+  // 1. Today's shoots
+  const { data: todaysShoots } = await supabaseAdmin
+    .from('projects')
+    .select('id, title, location, event_date, event_time, client_name, status, team_members')
+    .eq('event_date', todayStr)
+    .order('event_time', { ascending: true });
+
+  // 2. Pending confirmations (wa_sent assignments older than 1 hour)
+  const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+  const { data: pendingConfirmations } = await supabaseAdmin
+    .from('project_assignments')
+    .select('id, project_id, team_member_id, role_needed, sent_at, projects(title), team_members(name, phone)')
+    .eq('status', 'wa_sent')
+    .lt('sent_at', oneHourAgo)
+    .order('sent_at', { ascending: true });
+
+  // 3. Quote follow-ups: projects in 'quote_sent' status for more than 2 days
+  const twoDaysAgo = subDays(now, 2).toISOString();
+  const { data: quoteFollowUps } = await supabaseAdmin
+    .from('projects')
+    .select('id, title, client_name, created_at, status')
+    .eq('status', 'quote_sent')
+    .lt('created_at', twoDaysAgo)
+    .order('created_at', { ascending: true });
+
+  // 4. Overdue projects: past event_date but not completed/cancelled
+  const { data: overdueProjects } = await supabaseAdmin
+    .from('projects')
+    .select('id, title, client_name, event_date, status')
+    .lt('event_date', todayStr)
+    .not('status', 'in', '("completed","cancelled","delivered")')
+    .order('event_date', { ascending: true });
+
+  // 5. Revenue stats
+  const monthStart = format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd');
+  const { data: monthProjects } = await supabaseAdmin
+    .from('projects')
+    .select('total_amount, amount_paid, status')
+    .gte('event_date', monthStart);
+
+  let revenueThisMonth = 0;
+  let revenuePipeline = 0;
+  let revenueOutstanding = 0;
+
+  for (const p of monthProjects || []) {
+    const total = Number(p.total_amount) || 0;
+    const paid = Number(p.amount_paid) || 0;
+    if (['completed', 'delivered'].includes(p.status)) {
+      revenueThisMonth += paid;
+      revenueOutstanding += total - paid;
+    } else {
+      revenuePipeline += total;
+    }
+  }
+
+  // 6. Insert digest record
+  const { data: digest, error: insertError } = await supabaseAdmin
+    .from('admin_digests')
+    .insert({
+      generated_at: now.toISOString(),
+      todays_shoots: todaysShoots || [],
+      pending_confirmations: pendingConfirmations || [],
+      quote_follow_ups: quoteFollowUps || [],
+      overdue_projects: overdueProjects || [],
+      revenue_this_month: revenueThisMonth,
+      revenue_pipeline: revenuePipeline,
+      revenue_outstanding: revenueOutstanding,
+    })
+    .select()
+    .single();
+
+  if (insertError) {
+    console.error('[cron-daily-digest] insert error:', insertError);
+    return res.status(500).json({ error: 'Failed to save digest' });
+  }
+
+  // 7. In-app notification for each admin
+  const { data: prefs } = await supabaseAdmin
+    .from('notification_preferences')
+    .select('user_id');
+  const adminUserIds = (prefs || []).map((p: any) => p.user_id);
+
+  const todayShootCount = (todaysShoots || []).length;
+  const pendingCount = (pendingConfirmations || []).length;
+  const overdueCount = (overdueProjects || []).length;
+
+  const summaryLines: string[] = [];
+  if (todayShootCount > 0) summaryLines.push(`📸 ${todayShootCount} shoot${todayShootCount > 1 ? 's' : ''} today`);
+  if (pendingCount > 0) summaryLines.push(`⏳ ${pendingCount} pending team confirmation${pendingCount > 1 ? 's' : ''}`);
+  if (overdueCount > 0) summaryLines.push(`🚨 ${overdueCount} overdue project${overdueCount > 1 ? 's' : ''}`);
+  if ((quoteFollowUps || []).length > 0) summaryLines.push(`💬 ${quoteFollowUps!.length} quote${quoteFollowUps!.length > 1 ? 's' : ''} need follow-up`);
+
+  if (adminUserIds.length > 0) {
+    await supabaseAdmin.from('notifications').insert(
+      adminUserIds.map((userId: string) => ({
+        user_id: userId,
+        type: 'daily_digest',
+        title: `Good morning! Daily briefing for ${format(now, 'd MMM')}`,
+        message: summaryLines.length > 0
+          ? summaryLines.join(' · ')
+          : 'All clear — no urgent actions today.',
+        urgency: overdueCount > 0 || pendingCount > 0 ? 'high' : 'low',
+      }))
+    );
+  }
+
+  // 8. WhatsApp digest to admin phones (optional — only if ADMIN_WHATSAPP_PHONE is set)
+  const adminPhone = process.env.ADMIN_WHATSAPP_PHONE;
+  if (adminPhone && process.env.WHATSAPP_BSP_API_KEY) {
+    try {
+      const waBody = {
+        countryCode: '91',
+        phoneNumber: adminPhone.replace(/^(\+91|91)/, ''),
+        callbackData: 'daily_digest',
+        type: 'Template',
+        template: {
+          name: 'daily_admin_digest',
+          languageCode: 'en',
+          bodyValues: [
+            format(now, 'd MMM yyyy'),
+            String(todayShootCount),
+            String(pendingCount),
+            String(overdueCount),
+            `₹${(revenueThisMonth / 1000).toFixed(1)}k`,
+          ],
+        },
+      };
+
+      await fetch(process.env.WHATSAPP_BSP_API_URL || 'https://api.interakt.ai/v1/public/message/', {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${process.env.WHATSAPP_BSP_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(waBody),
+      });
+    } catch (e) {
+      console.warn('[cron-daily-digest] WhatsApp send failed (non-fatal):', e);
+    }
+  }
+
+  console.log(`[cron-daily-digest] done — shoots:${todayShootCount} pending:${pendingCount} overdue:${overdueCount}`);
+
+  return res.status(200).json({
+    digestId: digest?.id,
+    todayShoots: todayShootCount,
+    pendingConfirmations: pendingCount,
+    overdueProjects: overdueCount,
+    revenueThisMonth,
+  });
+}

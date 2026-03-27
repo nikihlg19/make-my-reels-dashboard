@@ -2,9 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Client, Project, TeamMember } from '../types';
 import { Search, Plus, Briefcase, Mail, Phone, Trash2, ExternalLink, User, Calendar, Pencil, X, Check, FileText, Copy, MessageSquare } from 'lucide-react';
-import PasscodeLock from './PasscodeLock';
-import { DELETE_PIN } from '../constants';
-import { ProjectCard } from './Board';
+import { ProjectCard } from './ProjectCard';
 
 interface ClientsProps {
   clients: Client[];
@@ -19,6 +17,7 @@ interface ClientsProps {
   editingClient?: Client | null;
   setEditingClient?: (client: Client | null) => void;
   isFinancialsUnlocked: boolean;
+  isAdmin?: boolean;
   globalSearchQuery?: string;
 }
 
@@ -55,7 +54,7 @@ export const ClientCard: React.FC<{
           onClick={onEdit}
           className={`w-12 h-12 ${client.color} rounded-[16px] flex items-center justify-center text-lg font-black text-white mb-2 shadow-sm group-hover:scale-105 transition-all cursor-pointer hover:ring-4 hover:ring-indigo-100 hover:opacity-90`}
         >
-          {client.avatar}
+          {(client.avatar || '').replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase()}
         </div>
         
         <h3 
@@ -118,7 +117,7 @@ export const ClientCard: React.FC<{
   );
 };
 
-const Clients: React.FC<ClientsProps> = ({ clients, projects, team, onAddClient, onUpdateClient, onDeleteClient, onEditProject, onDeleteProject, onPreviewMember, editingClient: externalEditingClient, setEditingClient: externalSetEditingClient, isFinancialsUnlocked, globalSearchQuery }) => {
+const Clients: React.FC<ClientsProps> = ({ clients, projects, team, onAddClient, onUpdateClient, onDeleteClient, onEditProject, onDeleteProject, onPreviewMember, editingClient: externalEditingClient, setEditingClient: externalSetEditingClient, isFinancialsUnlocked, globalSearchQuery = '', isAdmin = false }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [internalEditingClient, setInternalEditingClient] = useState<Client | null>(null);
@@ -196,17 +195,30 @@ const Clients: React.FC<ClientsProps> = ({ clients, projects, team, onAddClient,
         ))}
 
         {deleteTargetId && (
-          <PasscodeLock 
-            title="Delete Confirmation"
-            subtitle={`Enter PIN to delete client portfolio`}
-            correctPasscode={DELETE_PIN}
-            length={4}
-            onUnlock={() => {
-              onDeleteClient(deleteTargetId);
-              setDeleteTargetId(null);
-            }}
-            onClose={() => setDeleteTargetId(null)}
-          />
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setDeleteTargetId(null)} />
+            <div onClick={e => e.stopPropagation()} className="relative bg-white rounded-[28px] w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
+              <div className="p-8 text-center">
+                <div className="w-16 h-16 rounded-2xl mx-auto mb-5 flex items-center justify-center bg-rose-50">
+                  <Trash2 size={28} className="text-rose-500" />
+                </div>
+                <h3 className="text-lg font-black text-slate-800 tracking-tight uppercase mb-2">Delete Client</h3>
+                <p className="text-sm text-slate-500 font-medium">
+                  {isAdmin
+                    ? "Are you sure you want to delete this client?"
+                    : "Are you sure you want to delete this client and send for approval to Admin?"}
+                </p>
+              </div>
+              <div className="flex border-t border-slate-100">
+                <button onClick={() => setDeleteTargetId(null)} className="flex-1 py-4 text-[11px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
+                  <X size={16} /> Cancel
+                </button>
+                <button onClick={() => { onDeleteClient(deleteTargetId); setDeleteTargetId(null); }} className="flex-1 py-4 text-[11px] font-black uppercase tracking-widest text-white bg-rose-500 hover:bg-rose-600 transition-all flex items-center justify-center gap-2">
+                  <Trash2 size={16} /> Delete
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {editingClient && (
@@ -268,7 +280,7 @@ export const EditClientModal: React.FC<{
       email: formData.email.trim() || undefined,
       phone: `+91${formData.phone}`,
       notes: formData.notes,
-      avatar: formData.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+      avatar: formData.name.replace(/[^a-zA-Z\s]/g, '').trim().split(/\s+/).filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2)
     });
   };
 
@@ -298,7 +310,7 @@ export const EditClientModal: React.FC<{
               <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest ml-2">Phone</label>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400 text-[10px]">+91</span>
-                <input required className="w-full border-2 border-slate-100 rounded-xl pl-12 pr-4 py-3 bg-slate-50 font-black focus:border-indigo-500 outline-none transition-all text-sm" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10)})} />
+                <input required minLength={10} pattern="[0-9]{10}" title="Phone number must be exactly 10 digits" className="w-full border-2 border-slate-100 rounded-xl pl-12 pr-4 py-3 bg-slate-50 font-black focus:border-indigo-500 outline-none transition-all text-sm" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10)})} />
               </div>
             </div>
             <div className="space-y-2">
@@ -350,7 +362,7 @@ const ClientHistoryModal: React.FC<{
         <div className="p-8 border-b border-slate-200 flex justify-between items-center bg-white/50 backdrop-blur-sm shrink-0 z-20">
           <div className="flex items-center gap-4">
             <div className={`w-12 h-12 ${client.color} rounded-2xl flex items-center justify-center text-lg font-black text-white shadow-md`}>
-              {client.avatar}
+              {(client.avatar || '').replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase()}
             </div>
             <div>
               <h3 className="text-xl font-black text-slate-800 tracking-tight uppercase">{client.company}</h3>

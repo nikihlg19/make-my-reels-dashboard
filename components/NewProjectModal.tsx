@@ -1,7 +1,11 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { X, Check, Users as UsersIcon, ChevronDown, IndianRupee, Target, Camera, Search, Link as LinkIcon, Instagram, Tag, FileText, Briefcase, Clock } from 'lucide-react';
+import { X, Check, Users as UsersIcon, ChevronDown, IndianRupee, Target, Camera, Search, Link as LinkIcon, Instagram, Tag, FileText, Briefcase, Clock, MapPin, Zap } from 'lucide-react';
+import { useDistanceCalculator } from '../src/services/maps';
 import { TeamMember, Project, Priority, ProjectStatus, InstaLink, Client } from '../types';
+import { LocationAutocomplete } from './LocationAutocomplete';
+import { MILEAGE_RATE_PER_KM } from '../constants';
+import { AssignTeamModal } from './AssignTeamModal';
 
 interface NewProjectModalProps {
   isOpen: boolean;
@@ -46,23 +50,26 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ onClose, team, client
   const [newInstaLink, setNewInstaLink] = useState('');
   const [newInstaTag, setNewInstaTag] = useState('');
   const [newTag, setNewTag] = useState('');
+  const [savedProject, setSavedProject] = useState<Project | null>(null);
+  const [showAssignModal, setShowAssignModal] = useState(false);
 
   const scrollContainerRef = React.useRef<HTMLFormElement>(null);
   const clientSectionRef = React.useRef<HTMLDivElement>(null);
   const specialistSectionRef = React.useRef<HTMLDivElement>(null);
   const dependenciesSectionRef = React.useRef<HTMLDivElement>(null);
 
+  const scrollSectionIntoView = (container: HTMLElement, element: HTMLElement) => {
+    const containerRect = container.getBoundingClientRect();
+    const elementRect = element.getBoundingClientRect();
+    const scrollTop = container.scrollTop + elementRect.top - containerRect.top - 8;
+    container.scrollTo({ top: scrollTop, behavior: 'smooth' });
+  };
+
   useEffect(() => {
     if (isClientDropdownOpen && clientSectionRef.current && scrollContainerRef.current) {
       setTimeout(() => {
-        const container = scrollContainerRef.current;
-        const element = clientSectionRef.current;
-        if (container && element) {
-          container.scrollTo({
-            top: element.offsetTop - 24,
-            behavior: 'smooth'
-          });
-        }
+        if (scrollContainerRef.current && clientSectionRef.current)
+          scrollSectionIntoView(scrollContainerRef.current, clientSectionRef.current);
       }, 50);
     }
   }, [isClientDropdownOpen]);
@@ -70,14 +77,8 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ onClose, team, client
   useEffect(() => {
     if (isDropdownOpen && specialistSectionRef.current && scrollContainerRef.current) {
       setTimeout(() => {
-        const container = scrollContainerRef.current;
-        const element = specialistSectionRef.current;
-        if (container && element) {
-          container.scrollTo({
-            top: element.offsetTop - 24,
-            behavior: 'smooth'
-          });
-        }
+        if (scrollContainerRef.current && specialistSectionRef.current)
+          scrollSectionIntoView(scrollContainerRef.current, specialistSectionRef.current);
       }, 50);
     }
   }, [isDropdownOpen]);
@@ -85,17 +86,63 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ onClose, team, client
   useEffect(() => {
     if (isDependenciesDropdownOpen && dependenciesSectionRef.current && scrollContainerRef.current) {
       setTimeout(() => {
-        const container = scrollContainerRef.current;
-        const element = dependenciesSectionRef.current;
-        if (container && element) {
-          container.scrollTo({
-            top: element.offsetTop - 24,
-            behavior: 'smooth'
-          });
-        }
+        if (scrollContainerRef.current && dependenciesSectionRef.current)
+          scrollSectionIntoView(scrollContainerRef.current, dependenciesSectionRef.current);
       }, 50);
     }
   }, [isDependenciesDropdownOpen]);
+
+  const { getDistance } = useDistanceCalculator();
+  const [debouncedLocation, setDebouncedLocation] = useState('');
+  const [distances, setDistances] = useState<Record<string, { text?: string; duration?: string; value?: number; isCalculating: boolean; error?: boolean }>>({});
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (formData.location && formData.location.trim().length > 3) {
+        setDebouncedLocation(formData.location.trim());
+      } else {
+        setDebouncedLocation('');
+      }
+    }, 1000);
+    return () => clearTimeout(handler);
+  }, [formData.location]);
+
+  useEffect(() => {
+    if (!debouncedLocation) return;
+    
+    const calculateDistances = async () => {
+      const newDistances: Record<string, any> = {};
+      // Only calculate for members with a location, capped at 10 to limit API calls
+      const membersWithLoc = team.filter(m => m.location && m.location.trim().length > 3).slice(0, 10);
+      
+      membersWithLoc.forEach(m => newDistances[m.id] = { isCalculating: true });
+      setDistances(prev => ({ ...prev, ...newDistances }));
+
+      await Promise.allSettled(membersWithLoc.map(async (member) => {
+        try {
+          const res = await getDistance(member.location!, debouncedLocation);
+          if (res) {
+            setDistances(prev => ({
+              ...prev,
+              [member.id]: {
+                text: res.distanceText,
+                duration: res.durationText,
+                value: res.distanceValue,
+                isCalculating: false
+              }
+            }));
+          } else {
+            setDistances(prev => ({ ...prev, [member.id]: { isCalculating: false, error: true } }));
+          }
+        } catch(e) {
+          console.error('Distance calculation failed for', member.name, e);
+          setDistances(prev => ({ ...prev, [member.id]: { isCalculating: false, error: true } }));
+        }
+      }));
+    };
+
+    calculateDistances();
+  }, [debouncedLocation, team]);
 
   useEffect(() => {
     if (initialStatus) {
@@ -104,8 +151,31 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ onClose, team, client
   }, [initialStatus]);
 
   const filteredTeam = useMemo(() => {
-    return team.filter(m => m.name.toLowerCase().includes(teamSearch.toLowerCase()));
-  }, [team, teamSearch]);
+    let result = team.filter(m => m.name.toLowerCase().includes(teamSearch.toLowerCase()) || (m.location && m.location.toLowerCase().includes(teamSearch.toLowerCase())));
+
+    const hasConflict = (member: TeamMember) =>
+      projects.some(p => p.eventDate === formData.eventDate && p.teamMemberIds.includes(member.id) && p.location !== formData.location && p.status !== 'Completed' && p.status !== 'Expired');
+
+    result.sort((a, b) => {
+      const aSelected = selectedTeamIds.includes(a.id);
+      const bSelected = selectedTeamIds.includes(b.id);
+      if (aSelected && !bSelected) return -1;
+      if (!aSelected && bSelected) return 1;
+
+      if (!aSelected && !bSelected) {
+        const aConflict = hasConflict(a);
+        const bConflict = hasConflict(b);
+        if (!aConflict && bConflict) return -1;
+        if (aConflict && !bConflict) return 1;
+      }
+
+      const aDist = distances[a.id]?.value || Infinity;
+      const bDist = distances[b.id]?.value || Infinity;
+      return aDist - bDist;
+    });
+
+    return result;
+  }, [team, teamSearch, selectedTeamIds, distances, projects, formData.eventDate, formData.location]);
 
   const filteredClients = useMemo(() => {
     return clients
@@ -117,30 +187,40 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ onClose, team, client
     return projects.filter(p => p.title.toLowerCase().includes(dependencySearch.toLowerCase()));
   }, [projects, dependencySearch]);
 
+  const buildProject = (): Project => ({
+    id: formData.id,
+    title: formData.title,
+    description: formData.description,
+    notes: formData.notes,
+    location: formData.location,
+    priority: formData.priority,
+    tags: formData.tags,
+    teamMemberIds: selectedTeamIds,
+    eventDate: formData.eventDate,
+    eventTime: hasTime ? formData.eventTime : undefined,
+    submissionDeadline: hasDeadline ? formData.submissionDeadline : undefined,
+    dueDate: formData.eventDate,
+    status: formData.status,
+    progress: formData.status === 'Completed' ? 100 : 0,
+    budget: formData.budget,
+    expenses: formData.expenses,
+    instaLinks: formData.instaLinks,
+    clientId: formData.clientId || undefined,
+    clientIds: formData.clientIds || [],
+    dependencies: formData.dependencies,
+  });
+
+  const handleSaveAndAssign = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const p = buildProject();
+    onAddProject(p);
+    setSavedProject(p);
+    setShowAssignModal(true);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const newProject: Project = {
-      id: formData.id,
-      title: formData.title,
-      description: formData.description,
-      notes: formData.notes,
-      location: formData.location,
-      priority: formData.priority,
-      tags: formData.tags,
-      teamMemberIds: selectedTeamIds,
-      eventDate: formData.eventDate,
-      eventTime: hasTime ? formData.eventTime : undefined,
-      submissionDeadline: hasDeadline ? formData.submissionDeadline : undefined,
-      dueDate: formData.eventDate,
-      status: formData.status,
-      progress: formData.status === 'Completed' ? 100 : 0,
-      budget: formData.budget,
-      expenses: formData.expenses,
-      instaLinks: formData.instaLinks,
-      clientId: formData.clientId || undefined,
-      clientIds: formData.clientIds || [],
-      dependencies: formData.dependencies
-    };
+    const newProject = buildProject();
     onAddProject(newProject);
     onClose();
   };
@@ -242,7 +322,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ onClose, team, client
                   }}
                 >
                   <div className="flex flex-wrap gap-2">
-                    {(!formData.clientIds || formData.clientIds.length === 0) && !formData.clientId ? <span className="text-slate-300 italic font-bold">-- No Client Linked --</span> : 
+                    {(!formData.clientIds || formData.clientIds.length === 0) && !formData.clientId ? <span className="text-slate-300 italic font-bold">Select client...</span> :
                       (formData.clientIds || (formData.clientId ? [formData.clientId] : [])).map(id => {
                         const client = clients.find(c => c.id === id);
                         return client ? (
@@ -279,25 +359,24 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ onClose, team, client
                       />
                     </div>
                     <div className="max-h-[200px] overflow-y-auto space-y-1 pr-2 custom-scrollbar">
-                      <div 
-                        onClick={() => { setFormData({...formData, clientId: '', clientIds: []}); setIsClientDropdownOpen(false); }} 
-                        className={`flex items-center justify-between p-3.5 rounded-xl cursor-pointer transition-all ${(!formData.clientIds || formData.clientIds.length === 0) && !formData.clientId ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-50'}`}
-                      >
-                        <span className="font-black uppercase tracking-widest text-[10px]">-- No Client Linked --</span>
-                        {(!formData.clientIds || formData.clientIds.length === 0) && !formData.clientId && <Check size={16} />}
-                      </div>
                       {filteredClients.slice(0, 5).map(client => {
                         const isSelected = (formData.clientIds || (formData.clientId ? [formData.clientId] : [])).includes(client.id);
                         return (
-                          <div 
-                            key={client.id} 
-                            onClick={() => { 
+                          <div
+                            key={client.id}
+                            onClick={() => {
                               const currentIds = formData.clientIds || (formData.clientId ? [formData.clientId] : []);
-                              const newIds = isSelected 
+                              const newIds = isSelected
                                 ? currentIds.filter(id => id !== client.id)
                                 : [...currentIds, client.id];
-                              setFormData({...formData, clientIds: newIds, clientId: newIds.length > 0 ? newIds[0] : ''}); 
-                            }} 
+                              setFormData({...formData, clientIds: newIds, clientId: newIds.length > 0 ? newIds[0] : ''});
+                            }}
+                            onDoubleClick={() => {
+                              const currentIds = formData.clientIds || (formData.clientId ? [formData.clientId] : []);
+                              const newIds = currentIds.includes(client.id) ? currentIds : [...currentIds, client.id];
+                              setFormData({...formData, clientIds: newIds, clientId: newIds[0] || ''});
+                              setIsClientDropdownOpen(false);
+                            }}
                             className={`flex items-center justify-between p-3.5 rounded-xl cursor-pointer transition-all ${isSelected ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-50'}`}
                           >
                             <div className="flex flex-col">
@@ -310,15 +389,25 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ onClose, team, client
                       })}
                       {filteredClients.length === 0 && <p className="text-center text-slate-300 text-xs py-4 font-bold">No clients found</p>}
                     </div>
+                    <button type="button" onClick={() => setIsClientDropdownOpen(false)} className="w-full py-3 bg-slate-100 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200">Done Selecting</button>
                   </div>
                 )}
               </div>
             </div>
 
+            <div className="col-span-1 md:col-span-2 space-y-2">
+              <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest ml-2">LOCATION</label>
+              <LocationAutocomplete
+                value={formData.location}
+                onChange={(value) => setFormData({...formData, location: value})}
+                placeholder="Search and select location..."
+              />
+            </div>
+
             <div ref={specialistSectionRef} className="col-span-1 md:col-span-2 space-y-2">
               <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest ml-2">Specialist Deployment</label>
               <div className="relative w-full z-50">
-                <div 
+                <div
                   className="w-full border-2 border-slate-100 rounded-[24px] p-5 bg-slate-50 cursor-pointer flex justify-between items-center"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -328,7 +417,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ onClose, team, client
                   }}
                 >
                   <div className="flex flex-wrap gap-2">
-                    {selectedTeamIds.length === 0 ? <span className="text-slate-300 italic font-bold">Unassigned</span> : 
+                    {selectedTeamIds.length === 0 ? <span className="text-slate-300 italic font-bold">Unassigned</span> :
                       selectedTeamIds.map(id => {
                         const member = team.find(m => m.id === id);
                         return <span key={id} className={`${member?.color || 'bg-slate-900'} text-white px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest`}>{member?.name}</span>
@@ -337,26 +426,50 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ onClose, team, client
                   </div>
                   <ChevronDown size={20} className="text-slate-300" />
                 </div>
-                
+
                 {isDropdownOpen && (
                   <div onClick={e => e.stopPropagation()} className="absolute top-full left-0 right-0 mt-4 bg-white border-2 border-slate-100 rounded-[30px] shadow-2xl p-6 space-y-4 animate-in slide-in-from-top-4 duration-300">
                     <div className="relative">
                       <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
-                      <input 
-                        className="w-full bg-slate-50 border-0 outline-none pl-12 pr-4 py-4 rounded-xl font-bold text-sm" 
-                        placeholder="Search team..." 
-                        value={teamSearch} 
+                      <input
+                        className="w-full bg-slate-50 border-0 outline-none pl-12 pr-4 py-4 rounded-xl font-bold text-sm"
+                        placeholder="Search team..."
+                        value={teamSearch}
                         onChange={e => setTeamSearch(e.target.value)}
                       />
                     </div>
                     <div className="max-h-[200px] overflow-y-auto space-y-1 pr-2 custom-scrollbar">
                       {filteredTeam.map(member => (
-                        <div key={member.id} onClick={() => toggleMember(member.id)} className={`flex items-center justify-between p-3.5 rounded-xl cursor-pointer transition-all ${selectedTeamIds.includes(member.id) ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-50'}`}>
+                        <div
+                          key={member.id}
+                          onClick={() => toggleMember(member.id)}
+                          onDoubleClick={() => { if (!selectedTeamIds.includes(member.id)) toggleMember(member.id); setIsDropdownOpen(false); }}
+                          className={`flex items-center justify-between p-3.5 rounded-xl cursor-pointer transition-all ${selectedTeamIds.includes(member.id) ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-50'}`}>
                           <div className="flex items-center gap-3">
-                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-black text-white ${member.color || 'bg-slate-900'}`}>{member.avatar}</div>
-                            <span className="font-black uppercase tracking-widest text-[10px]">{member.name}</span>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black text-white shrink-0 ${member.color || 'bg-slate-900'}`}>{(member.avatar || '').replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase()}</div>
+                            <div className="flex flex-col min-w-0">
+                              <span className="font-black uppercase tracking-widest text-[11px] truncate">{member.name}</span>
+                              {distances[member.id]?.isCalculating ? (
+                                <span className="text-[9px] text-indigo-300 font-bold animate-pulse mt-0.5">Calculating ETA...</span>
+                              ) : distances[member.id]?.text ? (
+                                <span className={`text-[9px] font-bold mt-0.5 flex items-center gap-1 ${selectedTeamIds.includes(member.id) ? 'text-indigo-200' : 'text-emerald-600'}`}>
+                                  <MapPin size={10} /> {distances[member.id].text} • {distances[member.id].duration}
+                                </span>
+                              ) : member.location ? (
+                                <span className={`text-[9px] mt-0.5 truncate ${selectedTeamIds.includes(member.id) ? 'text-indigo-300' : 'text-slate-400'}`}>📍 {member.location}</span>
+                              ) : (
+                                <span className={`text-[8px] italic mt-0.5 ${selectedTeamIds.includes(member.id) ? 'text-indigo-400/70' : 'text-slate-300'}`}>No location set</span>
+                              )}
+
+                              {/* Conflict Warning */}
+                              {projects.filter(p => p.eventDate === formData.eventDate && p.teamMemberIds.includes(member.id) && p.location !== formData.location && p.status !== 'Completed' && p.status !== 'Expired').length > 0 && (
+                                <span className="text-[9px] text-rose-500 font-bold mt-0.5 animate-pulse flex items-center gap-1">
+                                  ⚠️ Shoot conflict today!
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          {selectedTeamIds.includes(member.id) && <Check size={16} />}
+                          {selectedTeamIds.includes(member.id) && <Check size={18} className="shrink-0 ml-2" />}
                         </div>
                       ))}
                       {filteredTeam.length === 0 && <p className="text-center text-slate-300 text-xs py-4 font-bold">No members found</p>}
@@ -365,17 +478,6 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ onClose, team, client
                   </div>
                 )}
               </div>
-            </div>
-
-            <div className="col-span-1 md:col-span-2 space-y-2">
-              <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest ml-2">LOCATION</label>
-              <input 
-                required 
-                className="w-full border-2 border-slate-100 rounded-[24px] p-5 bg-slate-50 focus:ring-4 focus:ring-indigo-100 font-bold outline-none transition-all" 
-                placeholder="E.g. Mumbai, Studio A, etc."
-                value={formData.location}
-                onChange={e => setFormData({...formData, location: e.target.value})}
-              />
             </div>
 
             <div className="col-span-1 md:col-span-2 space-y-2">
@@ -434,7 +536,12 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ onClose, team, client
                 <label className="text-[10px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-2"><Target size={14} /> Deadline</label>
                 <button 
                   type="button" 
-                  onClick={() => setHasDeadline(!hasDeadline)}
+                  onClick={() => {
+                    if (!hasDeadline && !formData.submissionDeadline) {
+                      setFormData(prev => ({ ...prev, submissionDeadline: prev.eventDate }));
+                    }
+                    setHasDeadline(!hasDeadline);
+                  }}
                   className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${hasDeadline ? 'bg-rose-500' : 'bg-slate-200'}`}
                 >
                   <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${hasDeadline ? 'translate-x-5' : 'translate-x-1'}`} />
@@ -477,6 +584,19 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ onClose, team, client
                   placeholder="0"
                 />
               </div>
+              {selectedTeamIds.length > 0 && selectedTeamIds.reduce((sum, id) => sum + (distances[id]?.value || 0), 0) > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const totalMeters = selectedTeamIds.reduce((sum, id) => sum + (distances[id]?.value || 0), 0);
+                    const cost = Math.round((totalMeters / 1000) * MILEAGE_RATE_PER_KM);
+                    setFormData({...formData, expenses: (formData.expenses || 0) + cost});
+                  }}
+                  className="text-[10px] font-bold text-indigo-500 hover:text-indigo-700 ml-2 uppercase tracking-wider flex items-center gap-1 mt-1 transition-colors"
+                >
+                  <MapPin size={10} /> + Add ₹{Math.round((selectedTeamIds.reduce((sum, id) => sum + (distances[id]?.value || 0), 0) / 1000) * MILEAGE_RATE_PER_KM)} Travel Cost
+                </button>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -534,14 +654,19 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ onClose, team, client
                       />
                     </div>
                     <div className="max-h-[200px] overflow-y-auto space-y-1 pr-2 custom-scrollbar">
-                      {filteredDependencies.map(proj => (
-                        <div key={proj.id} onClick={() => toggleDependency(proj.id)} className={`flex items-center justify-between p-3.5 rounded-xl cursor-pointer transition-all ${formData.dependencies.includes(proj.id) ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-50'}`}>
-                          <div className="flex items-center gap-3">
-                            <span className="font-black uppercase tracking-widest text-[10px]">{proj.title}</span>
+                      {filteredDependencies.map(proj => {
+                        const depClient = clients.find(c => c.id === proj.clientId) || (proj.clientIds?.length ? clients.find(c => proj.clientIds!.includes(c.id)) : null);
+                        const isDepSelected = formData.dependencies.includes(proj.id);
+                        return (
+                          <div key={proj.id} onClick={() => toggleDependency(proj.id)} onDoubleClick={() => { if (!isDepSelected) toggleDependency(proj.id); setIsDependenciesDropdownOpen(false); }} className={`flex items-center justify-between p-3.5 rounded-xl cursor-pointer transition-all ${isDepSelected ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-50'}`}>
+                            <div className="flex flex-col">
+                              <span className="font-black uppercase tracking-widest text-[10px]">{proj.title}</span>
+                              {depClient && <span className={`text-[8px] font-bold uppercase tracking-widest ${isDepSelected ? 'text-indigo-300' : 'text-slate-400'}`}>{depClient.name || depClient.company}</span>}
+                            </div>
+                            {isDepSelected && <Check size={16} />}
                           </div>
-                          {formData.dependencies.includes(proj.id) && <Check size={16} />}
-                        </div>
-                      ))}
+                        );
+                      })}
                       {filteredDependencies.length === 0 && <p className="text-center text-slate-300 text-xs py-4 font-bold">No projects found</p>}
                     </div>
                     <button type="button" onClick={() => setIsDependenciesDropdownOpen(false)} className="w-full py-3 bg-slate-100 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200">Done Selecting</button>
@@ -639,10 +764,16 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({ onClose, team, client
             <button type="submit" className="w-full sm:flex-1 bg-slate-900 text-white py-5 rounded-[24px] font-black text-[11px] uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2">
               <Check size={16} /> Create Unit
             </button>
+            <button type="button" onClick={handleSaveAndAssign} className="w-full sm:flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-5 rounded-[24px] font-black text-[11px] uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2">
+              <Zap size={16} /> Save & Assign Team
+            </button>
             <button type="button" onClick={onClose} className="w-full sm:flex-1 py-5 rounded-[24px] border-2 border-slate-100 font-black text-[11px] uppercase tracking-widest text-slate-400 hover:bg-slate-50 transition-all">Cancel</button>
           </div>
         </form>
       </div>
+      {showAssignModal && savedProject && (
+        <AssignTeamModal project={savedProject} team={team} onClose={() => { setShowAssignModal(false); onClose(); }} />
+      )}
     </div>
   );
 };

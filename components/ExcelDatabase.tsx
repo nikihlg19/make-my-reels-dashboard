@@ -1,5 +1,6 @@
-
+﻿
 import React, { useRef, useState, useEffect } from 'react';
+import { GAS_CODE } from '../src/utils/gasCode';
 import * as XLSX from 'xlsx';
 import { 
   FileSpreadsheet, Upload, Download, AlertCircle, 
@@ -78,7 +79,7 @@ const ExcelDatabase: React.FC<ExcelDatabaseProps> = ({ onImport, currentData, is
         if (row.InstagramLinks) {
           links = typeof row.InstagramLinks === 'string' ? JSON.parse(row.InstagramLinks) : row.InstagramLinks;
         }
-      } catch (e) { console.warn("Parse Error InstagramLinks:", e); }
+      } catch (e) { console.error("Parse Error InstagramLinks:", e); }
 
       // Handle Excel Date Objects if cellDates=true was used
       let shootDate = parseDate(row.ShootDate);
@@ -131,13 +132,8 @@ const ExcelDatabase: React.FC<ExcelDatabaseProps> = ({ onImport, currentData, is
       onTimeRate: Number(row.OnTimeRate) || 100,
       tags: row.Tags ? String(row.Tags).split(',').map((s: string) => s.trim()).filter(Boolean) : [],
       onboardingNotes: isUnlocked ? String(row.OnboardingNotes || "") : "",
-      kyc_status: row.KYCStatus || 'none',
-      kyc_aadhaar: row.KYCAadhaar || '',
-      kyc_aadhaar_image: row.KYCAadhaarImage || '',
-      kyc_id_type: row.KYCIDType || '',
-      kyc_id_number: row.KYCIDNumber || '',
+      aadhaar_image_url: row.AadhaarImageUrl || '',
       kyc_declaration: row.KYCDeclaration === true || row.KYCDeclaration === 'true' || row.KYCDeclaration === 'TRUE',
-      kyc_digio_ref: row.KYCDigioRef || '',
       updatedAt: Number(row.UpdatedAt) || Date.now(),
       isDeleted: row.IsDeleted === true || row.IsDeleted === 'true' || row.IsDeleted === 'TRUE'
       };
@@ -280,13 +276,13 @@ const ExcelDatabase: React.FC<ExcelDatabaseProps> = ({ onImport, currentData, is
     buildSheet(projectHeaders, projectData, "Projects");
 
     // 2. TEAM
-    const teamHeaders = ["ID","Name","Roles","Phone","Avatar","Color","ActiveCount","CompletedCount","AvgRating","AvgEffort","OnTimeRate","Tags","OnboardingNotes","KYCStatus","KYCAadhaar","KYCAadhaarImage","KYCIDType","KYCIDNumber","KYCDeclaration","KYCDigioRef","UpdatedAt","IsDeleted"];
+    const teamHeaders = ["ID","Name","Roles","Phone","Avatar","Color","ActiveCount","CompletedCount","AvgRating","AvgEffort","OnTimeRate","Tags","OnboardingNotes","AadhaarImageUrl","KYCDeclaration","UpdatedAt","IsDeleted"];
     const teamData = currentData.team.map(m => [
       m.id,
       m.name,
       Array.isArray(m.role) ? m.role.join(', ') : m.role,
       m.phone,
-      m.avatar,
+      (m.avatar || '').replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase(),
       m.color,
       m.activeProjects,
       m.completedProjects,
@@ -295,13 +291,8 @@ const ExcelDatabase: React.FC<ExcelDatabaseProps> = ({ onImport, currentData, is
       m.onTimeRate,
       (m.tags || []).join(', '),
       isUnlocked ? (m.onboardingNotes || '') : '***',
-      m.kyc_status || 'none',
-      m.kyc_aadhaar || '',
-      m.kyc_aadhaar_image || '',
-      m.kyc_id_type || '',
-      m.kyc_id_number || '',
+      m.aadhaar_image_url || '',
       m.kyc_declaration ? 'true' : 'false',
-      m.kyc_digio_ref || '',
       m.updatedAt || Date.now(),
       m.isDeleted || false
     ]);
@@ -316,7 +307,7 @@ const ExcelDatabase: React.FC<ExcelDatabaseProps> = ({ onImport, currentData, is
       c.phone,
       c.email,
       c.notes,
-      c.avatar,
+      (c.avatar || '').replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase(),
       c.color,
       c.createdAt,
       c.updatedAt || Date.now(),
@@ -326,139 +317,6 @@ const ExcelDatabase: React.FC<ExcelDatabaseProps> = ({ onImport, currentData, is
     
     XLSX.writeFile(wb, `MMR_Master_Database_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
-
-  const GAS_CODE = `function doPost(e) {
-  var lock = LockService.getScriptLock();
-  if (lock.tryLock(10000)) {
-    try {
-      var ss = SpreadsheetApp.getActiveSpreadsheet();
-      var logSheet = ss.getSheetByName("Logs");
-      if (!logSheet) {
-        logSheet = ss.insertSheet("Logs");
-        logSheet.appendRow(["Timestamp", "Status", "Details"]);
-      }
-
-      var appendLog = function(status, details) {
-        if (!logSheet) return;
-        logSheet.appendRow([new Date(), status, details]);
-        // Keep logs under 1000 rows to prevent infinite growth
-        if (logSheet.getLastRow() > 1000) {
-          logSheet.deleteRows(2, logSheet.getLastRow() - 1000);
-        }
-      };
-
-      // ROBUST PARSING: Get raw content string first
-      var content = e.postData ? e.postData.getDataAsString() : null;
-      
-      if (!content) {
-        appendLog("Error", "No post data received");
-        return ContentService.createTextOutput("Error: No Data").setMimeType(ContentService.MimeType.TEXT);
-      }
-
-      var data;
-      try {
-        data = JSON.parse(content);
-      } catch(parseErr) {
-        appendLog("Parse Error", parseErr.toString() + " Content: " + content.substring(0, 50));
-        return ContentService.createTextOutput("Error: JSON Parse").setMimeType(ContentService.MimeType.TEXT);
-      }
-      
-      var updateSheet = function(sheetName, items, headers) {
-        if (!items) return; 
-        
-        var sheet = ss.getSheetByName(sheetName);
-        if (!sheet) sheet = ss.insertSheet(sheetName);
-        
-        var currentRowCount = sheet.getLastRow() - 1; // subtract header
-        var incomingRowCount = items.length;
-
-        // CIRCUIT BREAKER: If we are about to wipe out more than 20% of the data, abort!
-        if (currentRowCount > 10 && incomingRowCount < (currentRowCount * 0.8)) {
-          appendLog("FATAL WARNING", "Circuit breaker tripped! Attempted to delete too many rows in " + sheetName);
-          throw new Error("Mass deletion prevented by circuit breaker. Check Logs.");
-        }
-
-        // Safety check: Don't clear if payload is suspiciously empty but existing sheet has data
-        if (items.length === 0 && sheet.getLastRow() > 5) {
-           appendLog("Warning", "Skipped clearing " + sheetName + " (received 0 items but sheet has data)");
-           return; 
-        }
-
-        // Clear existing data (including headers to be safe)
-        if (sheet.getLastRow() > 0) {
-          sheet.getRange(1, 1, Math.max(sheet.getLastRow(), 1), Math.max(sheet.getLastColumn(), 1)).clearContent();
-        }
-        
-        sheet.appendRow(headers);
-        if (items.length > 0) {
-          var rows = items.map(function(item) {
-            return headers.map(function(h) { 
-              var val = item[h];
-              if (val === undefined || val === null) return "";
-              return val;
-            });
-          });
-          sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
-        }
-      };
-
-      updateSheet("Projects", data.projects, ["ID","Title","Status","Priority","ShootDate","ShootTime","Deadline","DueDate","Progress","Rating","Budget","Expenses","Location","Description","Notes","ClientID","ClientName","Dependencies","Tags","TeamMemberIDs","InstagramLinks","IsOverdue","UpdatedAt","IsDeleted"]);
-      updateSheet("Team", data.team, ["ID","Name","Roles","Phone","Avatar","Color","ActiveCount","CompletedCount","AvgRating","AvgEffort","OnTimeRate","Tags","OnboardingNotes","KYCStatus","KYCAadhaar","KYCAadhaarImage","KYCIDType","KYCIDNumber","KYCDeclaration","KYCDigioRef","UpdatedAt","IsDeleted"]);
-      updateSheet("Clients", data.clients, ["ID","Name","Company","Phone","Email","Notes","Avatar","Color","CreatedAt","UpdatedAt","IsDeleted"]);
-      
-      var actionDetail = data.action || "Auto-sync";
-      appendLog("Success", actionDetail + " | Projects: " + (data.projects ? data.projects.length : 0) + ", Team: " + (data.team ? data.team.length : 0) + ", Clients: " + (data.clients ? data.clients.length : 0));
-      SpreadsheetApp.flush();
-      return ContentService.createTextOutput("Success").setMimeType(ContentService.MimeType.TEXT);
-      
-    } catch(e) {
-      if(logSheet) {
-        logSheet.appendRow([new Date(), "Fatal Error", e.toString()]);
-      }
-      return ContentService.createTextOutput("Error: " + e.toString()).setMimeType(ContentService.MimeType.TEXT);
-    } finally {
-      lock.releaseLock();
-    }
-  } else {
-    return ContentService.createTextOutput("Busy").setMimeType(ContentService.MimeType.TEXT);
-  }
-}
-
-function doGet(e) {
-  return ContentService.createTextOutput("MMR Bridge Online. Use POST to sync.").setMimeType(ContentService.MimeType.TEXT);
-}
-
-function onEdit(e) {
-  if (!e || !e.range) return;
-  var sheet = e.range.getSheet();
-  var sheetName = sheet.getName();
-  if (sheetName !== "Projects" && sheetName !== "Team" && sheetName !== "Clients") return;
-  
-  var row = e.range.getRow();
-  if (row === 1) return; // Ignore header row
-  
-  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  var updateColIndex = headers.indexOf("UpdatedAt") + 1;
-  
-  if (updateColIndex > 0 && e.range.getColumn() !== updateColIndex) {
-    sheet.getRange(row, updateColIndex).setValue(new Date().getTime());
-  }
-}
-
-function backupDatabase() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  // IMPORTANT: Replace with your actual Google Drive Folder ID where you want backups saved
-  var backupFolderId = "YOUR_GOOGLE_DRIVE_FOLDER_ID"; 
-  try {
-    var folder = DriveApp.getFolderById(backupFolderId);
-    var dateString = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
-    var backupName = "Backup - " + ss.getName() + " - " + dateString;
-    DriveApp.getFileById(ss.getId()).makeCopy(backupName, folder);
-  } catch(e) {
-    var logSheet = ss.getSheetByName("Logs");
-    if(logSheet) logSheet.appendRow([new Date(), "Backup Failed", e.toString()]);
-  }
-}`;
 
   return (
     <div className="space-y-6">
@@ -501,7 +359,7 @@ function backupDatabase() {
             </button>
           </div>
           <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-2">Last Spreadsheet Fetch: {lastSync}</p>
-          <p className="text-[9px] text-amber-600 font-bold ml-2">⚠️ Important: Click "Share" in your Google Sheet and change "General access" to "Anyone with the link".</p>
+          <p className="text-[9px] text-amber-600 font-bold ml-2">âš ï¸ Important: Click "Share" in your Google Sheet and change "General access" to "Anyone with the link".</p>
         </div>
 
         {/* Write Connection */}
