@@ -12,7 +12,7 @@
   "crons": [
     {
       "path": "/api/cron-notifications",
-      "schedule": "0 * * * *"
+      "schedule": "0 9 * * *"
     },
     {
       "path": "/api/cleanup-archive",
@@ -20,7 +20,7 @@
     },
     {
       "path": "/api/cron-assignments",
-      "schedule": "*/30 * * * *"
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/cron-daily-digest",
