@@ -52,9 +52,10 @@ export const ClientCard: React.FC<{
       <div className="flex flex-col items-center text-center">
         <div 
           onClick={onEdit}
-          className={`w-12 h-12 ${client.color} rounded-[16px] flex items-center justify-center text-lg font-black text-white mb-2 shadow-sm group-hover:scale-105 transition-all cursor-pointer hover:ring-4 hover:ring-indigo-100 hover:opacity-90`}
+          style={{ backgroundColor: (['#8b5cf6','#6366f1','#f43f5e','#f59e0b','#10b981','#0ea5e9','#64748b'][Math.abs(client.id.split('').reduce((a,c)=>a+c.charCodeAt(0),0)) % 7]) }}
+          className="w-12 h-12 rounded-[16px] flex items-center justify-center text-lg font-black text-white mb-2 shadow-sm group-hover:scale-105 transition-all cursor-pointer hover:ring-4 hover:ring-indigo-100 hover:opacity-90"
         >
-          {(client.avatar || '').replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase()}
+          {(client.name || client.company || '??').replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase()}
         </div>
         
         <h3 
@@ -361,7 +362,7 @@ const ClientHistoryModal: React.FC<{
       <div onClick={e => e.stopPropagation()} className="bg-[#F4F5F7] rounded-[40px] w-full max-w-4xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col max-h-full sm:max-h-[90vh] my-auto">
         <div className="p-8 border-b border-slate-200 flex justify-between items-center bg-white/50 backdrop-blur-sm shrink-0 z-20">
           <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 ${client.color} rounded-2xl flex items-center justify-center text-lg font-black text-white shadow-md`}>
+            <div style={{ backgroundColor: (['#8b5cf6','#6366f1','#f43f5e','#f59e0b','#10b981','#0ea5e9','#64748b'][Math.abs(client.id.split('').reduce((a,c)=>a+c.charCodeAt(0),0)) % 7]) }} className="w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-black text-white shadow-md">
               {(client.avatar || '').replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase()}
             </div>
             <div>
