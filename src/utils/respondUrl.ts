@@ -18,7 +18,7 @@ async function shortenUrl(longUrl: string): Promise<string> {
   try {
     const res = await fetch(
       `https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`,
-      { signal: AbortSignal.timeout(4000) }
+      { signal: AbortSignal.timeout(2000) }
     );
     if (!res.ok) return longUrl;
     const short = await res.text();

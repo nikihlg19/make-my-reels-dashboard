@@ -107,9 +107,11 @@ export default async function handler(req: any, res: any) {
       declineUrl,
     }),
     new Promise<SendResult>(resolve =>
-      setTimeout(() => resolve({ success: false, error: 'timeout' }), 5000)
+      setTimeout(() => resolve({ success: false, error: 'timeout' }), 3000)
     ),
   ]);
+
+  console.log('[assignment/create] WA result:', JSON.stringify(waResult));
 
   if (waResult.success) {
     await supabaseAdmin
