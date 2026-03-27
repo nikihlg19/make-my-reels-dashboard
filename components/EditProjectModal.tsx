@@ -444,16 +444,29 @@ export const EditProjectModal: React.FC<{
                               disabled={isSending}
                               onClick={async () => {
                                 setSendingRequest(prev => ({ ...prev, [memberId]: true }));
-                                if (assignment && ['declined', 'expired'].includes(assignment.status)) {
-                                  await cancelAssignment(assignment.id);
+                                try {
+                                  if (assignment && ['declined', 'expired'].includes(assignment.status)) {
+                                    await cancelAssignment(assignment.id);
+                                  }
+                                  const result = await sendRequest(project.id, memberId, role);
+                                  if (result.success) {
+                                    setSendingRequest(prev => ({ ...prev, [memberId]: 'sent' as any }));
+                                    setTimeout(() => setSendingRequest(prev => ({ ...prev, [memberId]: false })), 3000);
+                                  } else {
+                                    console.error('[assignment] send failed:', result.error);
+                                    alert(`Send failed: ${result.error || 'Unknown error'}`);
+                                    setSendingRequest(prev => ({ ...prev, [memberId]: false }));
+                                  }
+                                } catch (err: any) {
+                                  console.error('[assignment] exception:', err);
+                                  alert(`Send failed: ${err.message || 'Network error'}`);
+                                  setSendingRequest(prev => ({ ...prev, [memberId]: false }));
                                 }
-                                await sendRequest(project.id, memberId, role);
-                                setSendingRequest(prev => ({ ...prev, [memberId]: false }));
                               }}
                               className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all disabled:opacity-50"
                             >
                               <Send size={10} />
-                              {isSending ? 'Sending...' : assignment ? 'Resend' : 'Send Request'}
+                              {sendingRequest[memberId] === ('sent' as any) ? 'Sent ✓' : isSending ? 'Sending...' : assignment ? 'Resend' : 'Send Request'}
                             </button>
                           ) : (
                             assignment && ['pending', 'wa_sent'].includes(assignment.status) && (
