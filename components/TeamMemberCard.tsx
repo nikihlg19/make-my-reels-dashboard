@@ -149,7 +149,7 @@ const TeamMemberCard: React.FC<TeamMemberCardProps> = ({ member, projects, onCon
       <div className="flex flex-col items-center text-center flex-1">
         <div
           onClick={(e) => { if (!isAdmin) return; e.stopPropagation(); onEdit(); }}
-          style={{ backgroundColor: (['#8b5cf6','#6366f1','#f43f5e','#f59e0b','#10b981','#0ea5e9','#64748b'][Math.abs(member.id.split('').reduce((a,c)=>a+c.charCodeAt(0),0)) % 7]) }}
+          style={{ backgroundColor: (['#f43f5e','#8b5cf6','#f59e0b','#10b981','#0ea5e9','#ec4899','#f97316','#6366f1','#14b8a6','#eab308'][Math.abs(member.id.split('').reduce((a,c)=>a+c.charCodeAt(0),0)) % 10]) }}
           className={`w-12 h-12 rounded-[16px] flex items-center justify-center text-lg font-black text-white mb-2 shadow-sm transition-all group-hover:scale-105 group-hover:rotate-3 ${isAdmin ? 'cursor-pointer hover:ring-4 hover:ring-indigo-100 hover:opacity-90' : 'cursor-default'}`}
         >
           {initials}
@@ -400,7 +400,7 @@ const TeamMemberCard: React.FC<TeamMemberCardProps> = ({ member, projects, onCon
 
             <div className="flex-1 overflow-y-auto p-8 space-y-8">
               <div className="flex items-center gap-4 p-5 bg-slate-50 rounded-[32px] border border-slate-100">
-                <div style={{ backgroundColor: (['#8b5cf6','#6366f1','#f43f5e','#f59e0b','#10b981','#0ea5e9','#64748b'][Math.abs(member.id.split('').reduce((a,c)=>a+c.charCodeAt(0),0)) % 7]) }} className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-white shadow-lg">{initials}</div>
+                <div style={{ backgroundColor: (['#f43f5e','#8b5cf6','#f59e0b','#10b981','#0ea5e9','#ec4899','#f97316','#6366f1','#14b8a6','#eab308'][Math.abs(member.id.split('').reduce((a,c)=>a+c.charCodeAt(0),0)) % 10]) }} className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-white shadow-lg">{initials}</div>
                 <div>
                   <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">{member.name}</h4>
                   <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{Array.isArray(member.role) ? member.role.join(' \u2022 ') : member.role}</p>
