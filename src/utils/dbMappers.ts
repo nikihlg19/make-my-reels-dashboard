@@ -166,7 +166,7 @@ export function clientToRow(c: Client): Record<string, any> {
 export function rowToClient(r: Record<string, any>): Client {
   return {
     id: r.id,
-    name: r.name || '',
+    name: r.name || r.company || r.contact_person || '',
     company: r.company || '',
     phone: r.phone || '',
     email: r.email || undefined,
