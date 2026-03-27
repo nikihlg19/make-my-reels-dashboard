@@ -41,6 +41,22 @@ export function projectToRow(p: Project): Record<string, any> {
   };
 }
 
+function excelTimeToString(val: any): string | undefined {
+  if (!val) return undefined;
+  const str = String(val);
+  // Already a time string like "09:00" or "09:00:00"
+  if (/^\d{1,2}:\d{2}/.test(str)) return str.slice(0, 5);
+  // Excel decimal fraction (e.g. 0.375 = 09:00)
+  const num = parseFloat(str);
+  if (!isNaN(num) && num >= 0 && num < 1) {
+    const totalMinutes = Math.round(num * 24 * 60);
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  }
+  return undefined;
+}
+
 export function rowToProject(r: Record<string, any>): Project {
   return {
     id: r.id,
@@ -55,7 +71,7 @@ export function rowToProject(r: Record<string, any>): Project {
     client_name: r.client_name || undefined,
     teamMemberIds: r.team_member_ids || [],
     eventDate: r.event_date || '',
-    eventTime: r.event_time || undefined,
+    eventTime: excelTimeToString(r.event_time),
     dueDate: r.due_date || '',
     submissionDeadline: r.submission_deadline || undefined,
     status: r.status || 'Lead',
