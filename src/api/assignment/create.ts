@@ -12,7 +12,7 @@ import { createClient } from '@supabase/supabase-js';
 import { sendAssignmentRequest } from '../../services/whatsapp';
 import type { SendResult } from '../../services/whatsapp';
 import { format, parseISO, addHours } from 'date-fns';
-import { buildShortRespondUrls } from '../../utils/respondUrl';
+import { buildRespondUrl } from '../../utils/respondUrl';
 
 const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL!,
@@ -81,11 +81,9 @@ export default async function handler(req: any, res: any) {
     return res.status(500).json({ error: 'Failed to create assignment record' });
   }
 
-  // --- Build secure accept/decline URLs (shortened via TinyURL) ---
-  const { acceptUrl, declineUrl } = await buildShortRespondUrls(
-    assignment.id,
-    assignment.response_token,
-  );
+  // --- Build secure accept/decline URLs ---
+  const acceptUrl = buildRespondUrl(assignment.id, 'accept', assignment.response_token);
+  const declineUrl = buildRespondUrl(assignment.id, 'decline', assignment.response_token);
 
   // --- Send WhatsApp (best-effort, max 5 seconds — never blocks response) ---
   const shootDate = project.event_date

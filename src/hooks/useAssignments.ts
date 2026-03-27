@@ -112,11 +112,13 @@ export function useAssignments(projectIds?: string[]): UseAssignmentsResult {
         body: JSON.stringify({ projectId, teamMemberId, roleNeeded }),
         signal: controller.signal,
       });
-      const data = await res.json();
-      if (!res.ok) return { success: false, error: data.error || 'Request failed' };
+      const text = await res.text();
+      let data: any = {};
+      try { data = text ? JSON.parse(text) : {}; } catch { /* empty or non-JSON response */ }
+      if (!res.ok) return { success: false, error: data.error || `Server error (${res.status})` };
       return { success: true };
     } catch (err: any) {
-      return { success: false, error: err.name === 'AbortError' ? 'Request timed out' : err.message };
+      return { success: false, error: err.name === 'AbortError' ? 'Request timed out' : (err.message || 'Network error') };
     } finally {
       clearTimeout(timer);
     }

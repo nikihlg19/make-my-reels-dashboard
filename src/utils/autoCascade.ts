@@ -6,7 +6,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { sendAssignmentRequest } from '../services/whatsapp';
 import { format, parseISO, addHours } from 'date-fns';
-import { buildShortRespondUrls } from './respondUrl';
+import { buildRespondUrl } from './respondUrl';
 
 export async function triggerAutoCascade(
   supabase: SupabaseClient,
@@ -84,10 +84,8 @@ export async function triggerAutoCascade(
 
   if (!newAssignment) return { cascaded: false };
 
-  const { acceptUrl, declineUrl } = await buildShortRespondUrls(
-    newAssignment.id,
-    newAssignment.response_token,
-  );
+  const acceptUrl = buildRespondUrl(newAssignment.id, 'accept', newAssignment.response_token);
+  const declineUrl = buildRespondUrl(newAssignment.id, 'decline', newAssignment.response_token);
 
   const shootDate = project.event_date ? format(parseISO(project.event_date), 'd MMM yyyy') : 'TBD';
 
