@@ -217,7 +217,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
       </button>
 
       {isOpen && (
-        <div className="fixed inset-x-2 top-16 sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-3 sm:w-[380px] bg-slate-50/80 backdrop-blur-3xl rounded-[28px] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] border border-slate-200/60 z-50 overflow-hidden animate-in zoom-in-95 slide-in-from-top-4 duration-200">
+        <div className="absolute right-0 mt-3 w-[calc(100vw-16px)] max-w-[380px] -translate-x-[calc(100vw-100%-8px)] sm:translate-x-0 sm:w-[380px] bg-slate-50/80 backdrop-blur-3xl rounded-[28px] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] border border-slate-200/60 z-50 overflow-hidden animate-in zoom-in-95 slide-in-from-top-4 duration-200">
 
           {/* Header */}
           <div className="p-5 border-b border-slate-200/60 flex flex-col gap-4 bg-white/80">
