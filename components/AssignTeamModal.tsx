@@ -45,8 +45,8 @@ export const AssignTeamModal: React.FC<AssignTeamModalProps> = ({ project, onClo
   const allAssignedIds = [...new Set([...successIds, ...assignedMemberIds])];
 
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
-      <div className="bg-white rounded-[32px] w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-8 duration-400">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-md p-4" onClick={onClose}>
+      <div className="bg-white rounded-[32px] w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-8 duration-400" onClick={e => e.stopPropagation()}>
 
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b shrink-0">
@@ -115,6 +115,7 @@ export const AssignTeamModal: React.FC<AssignTeamModalProps> = ({ project, onClo
               onAssign={handleAssign}
               assigningId={assigningId}
               alreadyAssignedIds={allAssignedIds}
+              assignments={existingAssignments}
             />
           )}
         </div>

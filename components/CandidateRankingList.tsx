@@ -1,13 +1,24 @@
 import React, { useState } from 'react';
-import { CheckCircle, XCircle, MapPin, Star, Briefcase, Zap, ChevronDown, Send, RefreshCw } from 'lucide-react';
+import { CheckCircle, XCircle, MapPin, Star, Briefcase, ChevronDown, Send, RefreshCw } from 'lucide-react';
 import type { RankedCandidate } from '../src/hooks/useCandidateRanking';
+import type { ProjectAssignment } from '../types';
 
 interface CandidateRankingListProps {
   candidates: RankedCandidate[];
   onAssign: (candidate: RankedCandidate) => void;
   assigningId?: string | null;
   alreadyAssignedIds?: string[];
+  assignments?: ProjectAssignment[];
 }
+
+const STATUS_BADGE: Record<string, { label: string; className: string }> = {
+  accepted:  { label: 'Accepted',  className: 'bg-emerald-100 text-emerald-700' },
+  declined:  { label: 'Declined',  className: 'bg-rose-100 text-rose-600' },
+  wa_sent:   { label: 'Sent',      className: 'bg-amber-100 text-amber-700' },
+  pending:   { label: 'Pending',   className: 'bg-sky-100 text-sky-700' },
+  cancelled: { label: 'Cancelled', className: 'bg-slate-100 text-slate-400' },
+  expired:   { label: 'Expired',   className: 'bg-slate-100 text-slate-400' },
+};
 
 function ScoreBar({ value, color }: { value: number; color: string }) {
   return (
@@ -42,7 +53,7 @@ function ScoreBreakdownTooltip({ breakdown }: { breakdown: RankedCandidate['brea
 }
 
 export const CandidateRankingList: React.FC<CandidateRankingListProps> = ({
-  candidates, onAssign, assigningId, alreadyAssignedIds = [],
+  candidates, onAssign, assigningId, alreadyAssignedIds = [], assignments = [],
 }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -63,6 +74,8 @@ export const CandidateRankingList: React.FC<CandidateRankingListProps> = ({
         const isExpanded = expandedId === c.member.id;
         const unavailable = !c.isAvailable;
         const roles = Array.isArray(c.member.role) ? c.member.role.join(' · ') : c.member.role;
+        const memberAssignment = assignments.find(a => a.teamMemberId === c.member.id);
+        const statusBadge = memberAssignment ? STATUS_BADGE[memberAssignment.status] : null;
 
         const scoreColor =
           c.score >= 75 ? 'text-emerald-600 bg-emerald-50' :
@@ -82,10 +95,15 @@ export const CandidateRankingList: React.FC<CandidateRankingListProps> = ({
 
               {/* Name + meta */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[11px] font-black uppercase tracking-tight text-slate-800 truncate">{c.member.name}</span>
                   {unavailable && <XCircle size={10} className="text-rose-500 shrink-0" />}
-                  {isAssigned && <CheckCircle size={10} className="text-emerald-500 shrink-0" />}
+                  {isAssigned && !statusBadge && <CheckCircle size={10} className="text-emerald-500 shrink-0" />}
+                  {statusBadge && (
+                    <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full shrink-0 ${statusBadge.className}`}>
+                      {statusBadge.label}
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   <span className="text-[8px] text-slate-400 font-bold uppercase">{roles}</span>

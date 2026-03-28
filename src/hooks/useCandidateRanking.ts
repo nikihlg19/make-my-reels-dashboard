@@ -59,7 +59,9 @@ export function useCandidateRanking(): UseCandidateRankingResult {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ projectId, roleNeeded, assignmentGroupId: existingGroupId }),
       });
-      const data = await res.json();
+      const text = await res.text();
+      if (!text) throw new Error('No response from server — API may not be running locally');
+      const data = JSON.parse(text);
       if (!res.ok) throw new Error(data.error || 'Failed to fetch candidates');
       setCandidates(data.candidates || []);
       setAssignmentGroupId(data.assignmentGroupId || null);
