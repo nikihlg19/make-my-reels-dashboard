@@ -99,7 +99,7 @@ async function sendAssignmentConfirmation(params: {
 const APP_URL = process.env.VITE_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5173');
 
 function buildRespondUrl(assignmentId: string, action: 'accept' | 'decline', token: string): string {
-  return `${APP_URL}/api/assignment/respond?id=${encodeURIComponent(assignmentId)}&action=${action}&token=${encodeURIComponent(token)}`;
+  return `${APP_URL}/api/assignment/respond?id=${encodeURIComponent(assignmentId)}&r=${action}&token=${encodeURIComponent(token)}`;
 }
 
 // ─── Auto-cascade ─────────────────────────────────────────────────────────────
@@ -364,8 +364,8 @@ async function handleCandidates(req: any, res: any) {
 async function handleRespond(req: any, res: any) {
   if (req.method !== 'GET') return sendHtml(res, 405, htmlPage('Error', '🚫', 'Method Not Allowed', 'This link only works when tapped directly.', '#ef4444'));
 
-  const { id, action, token } = req.query || {};
-  if (!id || !token || !['accept', 'decline'].includes(action)) return sendHtml(res, 400, htmlPage('Invalid Link', '🔗', 'Invalid Link', 'This link is malformed or incomplete.', '#ef4444'));
+  const { id, r: action, token } = req.query || {};
+  if (!id || !token || !['accept', 'decline'].includes(action as string)) return sendHtml(res, 400, htmlPage('Invalid Link', '🔗', 'Invalid Link', 'This link is malformed or incomplete.', '#ef4444'));
 
   const { data: assignment, error: fetchErr } = await supabaseAdmin
     .from('project_assignments')

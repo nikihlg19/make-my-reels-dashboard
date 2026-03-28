@@ -18,7 +18,7 @@ const BSP_API_KEY = process.env.WHATSAPP_BSP_API_KEY || '';
 function buildRespondUrl(assignmentId: string, action: 'accept' | 'decline', token: string): string {
   const APP_URL = process.env.VITE_APP_URL
     || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5173');
-  return `${APP_URL}/api/assignment/respond?id=${encodeURIComponent(assignmentId)}&action=${action}&token=${encodeURIComponent(token)}`;
+  return `${APP_URL}/api/assignment/respond?id=${encodeURIComponent(assignmentId)}&r=${action}&token=${encodeURIComponent(token)}`;
 }
 
 async function sendAssignmentRequest(params: {
