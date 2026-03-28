@@ -14,18 +14,15 @@ const supabaseAdmin = createClient(
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 async function verifyAdmin(req: any): Promise<{ userId: string; email: string } | null> {
   try {
-    const { createClerkClient, verifyToken } = await import('@clerk/backend');
+    const { verifyToken } = await import('@clerk/backend');
     const token = (req.headers.authorization || '').replace('Bearer ', '');
     if (!token) return null;
     const payload = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY! });
     const userId = payload.sub;
     if (!userId) return null;
-    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-    const user = await clerk.users.getUser(userId);
-    const email = user.emailAddresses?.[0]?.emailAddress || '';
-    const adminEmails = (process.env.VITE_ADMIN_EMAILS || '').split(',').map((e: string) => e.trim().toLowerCase());
-    if (!adminEmails.includes(email.toLowerCase())) return null;
-    return { userId, email };
+    const adminIds = (process.env.VITE_ADMIN_USER_IDS || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+    if (adminIds.length > 0 && !adminIds.includes(userId)) return null;
+    return { userId, email: '' };
   } catch (err: any) { console.error('[verifyAdmin] exception:', err?.message); return null; }
 }
 
