@@ -18,7 +18,7 @@ async function verifyAdmin(req: any): Promise<{ userId: string; email: string } 
   try {
     const { createClerkClient } = await import('@clerk/backend');
     const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-    const authResult = await clerk.authenticateRequest(req, { secretKey: process.env.CLERK_SECRET_KEY });
+    const authResult = await clerk.authenticateRequest(new Request(`https://${req.headers.host}${req.url}`, { method: req.method, headers: req.headers as any }), { secretKey: process.env.CLERK_SECRET_KEY });
     const userId = authResult?.toAuth()?.userId;
     if (!userId) { console.error('[verifyAdmin] no userId from Clerk'); return null; }
     const user = await clerk.users.getUser(userId);
@@ -34,7 +34,7 @@ async function verifyAuth(req: any): Promise<{ userId: string } | null> {
   try {
     const { createClerkClient } = await import('@clerk/backend');
     const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-    const authResult = await clerk.authenticateRequest(req, { secretKey: process.env.CLERK_SECRET_KEY });
+    const authResult = await clerk.authenticateRequest(new Request(`https://${req.headers.host}${req.url}`, { method: req.method, headers: req.headers as any }), { secretKey: process.env.CLERK_SECRET_KEY });
     const userId = authResult?.toAuth()?.userId;
     return userId ? { userId } : null;
   } catch { return null; }
