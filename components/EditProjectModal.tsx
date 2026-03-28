@@ -100,7 +100,7 @@ export const EditProjectModal: React.FC<{
   const dependenciesSectionRef = useRef<HTMLDivElement>(null);
 
   const scrollSectionIntoView = (element: HTMLElement) => {
-    element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   useEffect(() => {
