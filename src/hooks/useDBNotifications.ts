@@ -36,6 +36,18 @@ export function useDBNotifications() {
 
   const supabase = session ? createClerkSupabaseClient(session) : null;
 
+  // Auto-register this user into notification_preferences so the API can find them
+  useEffect(() => {
+    if (!supabase || !user) return;
+    supabase
+      .from('notification_preferences')
+      .upsert({ user_id: user.id }, { onConflict: 'user_id', ignoreDuplicates: true })
+      .then(({ error }) => {
+        if (error) console.warn('[notifications] failed to register user pref:', error.message);
+        else console.log('[notifications] registered user_id:', user.id);
+      });
+  }, [user?.id, !!supabase]);
+
   const fetchNotifications = useCallback(async () => {
     if (!supabase || !user) { setLoading(false); return; }
     const { data, error } = await supabase
@@ -44,6 +56,7 @@ export function useDBNotifications() {
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(60);
+    if (error) console.warn('[notifications] fetch error:', error.message);
     if (!error) setNotifications((data || []).map(mapRow));
     setLoading(false);
   }, [session, user?.id]);
