@@ -5,6 +5,7 @@ import { parseLocation } from '../src/utils/location';
 interface LocationAutocompleteProps {
   value: string;
   onChange: (value: string) => void;
+  onSuggestionsOpenChange?: (open: boolean) => void;
   placeholder?: string;
   className?: string;
 }
@@ -68,6 +69,7 @@ const loadMapsScript = (): Promise<void> => {
 export const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
   value,
   onChange,
+  onSuggestionsOpenChange,
   placeholder = "Search location...",
   className = ""
 }) => {
@@ -89,6 +91,7 @@ export const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
     const handleClickOutside = (event: MouseEvent) => {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
         setIsOpen(false);
+        onSuggestionsOpenChange?.(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -133,6 +136,7 @@ export const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
               secondary_text: p.structured_formatting.secondary_text
             })));
             setIsOpen(true);
+            onSuggestionsOpenChange?.(true);
           } else if (status === placesStatus?.ZERO_RESULTS) {
             setSuggestions([]);
             setError(null);
@@ -173,6 +177,7 @@ export const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
       placeId: suggestion.place_id
     }));
     setIsOpen(false);
+    onSuggestionsOpenChange?.(false);
     setError(null);
   };
 

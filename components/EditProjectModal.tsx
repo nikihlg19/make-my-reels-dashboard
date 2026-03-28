@@ -31,6 +31,7 @@ export const EditProjectModal: React.FC<{
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
   const [isDependenciesDropdownOpen, setIsDependenciesDropdownOpen] = useState(false);
+  const [isLocationOpen, setIsLocationOpen] = useState(false);
   const [dependencySearch, setDependencySearch] = useState('');
   const [clientSearch, setClientSearch] = useState('');
   const [newTag, setNewTag] = useState('');
@@ -240,7 +241,7 @@ export const EditProjectModal: React.FC<{
           <button onClick={onClose} className="p-3 hover:bg-slate-100 rounded-[20px] text-slate-400 hover:text-slate-900 transition-all active:scale-90"><X size={24} /></button>
         </div>
 
-        <form ref={scrollContainerRef} onSubmit={handleSubmit} className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4">
+        <form ref={scrollContainerRef} onSubmit={handleSubmit} className={`flex-1 custom-scrollbar p-6 space-y-4 ${isDropdownOpen || isClientDropdownOpen || isDependenciesDropdownOpen || isLocationOpen ? 'overflow-visible' : 'overflow-y-auto'}`}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="col-span-1 md:col-span-2 space-y-1">
               <label className="text-[9px] font-black text-slate-300 uppercase tracking-widest ml-2">Deliverable Title</label>
@@ -341,6 +342,7 @@ export const EditProjectModal: React.FC<{
               <LocationAutocomplete
                 value={formData.location}
                 onChange={(value) => setFormData({...formData, location: value})}
+                onSuggestionsOpenChange={setIsLocationOpen}
                 placeholder="Search and select location..."
                 className="!py-3 !pl-10 !pr-4 !rounded-[16px] !text-base"
               />
