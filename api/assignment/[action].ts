@@ -16,27 +16,28 @@ const supabaseAdmin = createClient(
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 async function verifyAdmin(req: any): Promise<{ userId: string; email: string } | null> {
   try {
-    const { createClerkClient } = await import('@clerk/backend');
+    const { createClerkClient, verifyToken } = await import('@clerk/backend');
+    const token = (req.headers.authorization || '').replace('Bearer ', '');
+    if (!token) return null;
+    const payload = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY! });
+    const userId = payload.sub;
+    if (!userId) return null;
     const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-    const authResult = await clerk.authenticateRequest(new Request(`https://${req.headers.host}${req.url}`, { method: req.method, headers: req.headers as any }), { secretKey: process.env.CLERK_SECRET_KEY });
-    const userId = authResult?.toAuth()?.userId;
-    if (!userId) { console.error('[verifyAdmin] no userId from Clerk'); return null; }
     const user = await clerk.users.getUser(userId);
     const email = user.emailAddresses?.[0]?.emailAddress || '';
     const adminEmails = (process.env.VITE_ADMIN_EMAILS || '').split(',').map((e: string) => e.trim().toLowerCase());
-    console.log('[verifyAdmin] email:', email, 'adminEmails:', adminEmails);
-    if (!adminEmails.includes(email.toLowerCase())) { console.error('[verifyAdmin] email not in admin list'); return null; }
+    if (!adminEmails.includes(email.toLowerCase())) return null;
     return { userId, email };
   } catch (err: any) { console.error('[verifyAdmin] exception:', err?.message); return null; }
 }
 
 async function verifyAuth(req: any): Promise<{ userId: string } | null> {
   try {
-    const { createClerkClient } = await import('@clerk/backend');
-    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-    const authResult = await clerk.authenticateRequest(new Request(`https://${req.headers.host}${req.url}`, { method: req.method, headers: req.headers as any }), { secretKey: process.env.CLERK_SECRET_KEY });
-    const userId = authResult?.toAuth()?.userId;
-    return userId ? { userId } : null;
+    const { verifyToken } = await import('@clerk/backend');
+    const token = (req.headers.authorization || '').replace('Bearer ', '');
+    if (!token) return null;
+    const payload = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY! });
+    return payload.sub ? { userId: payload.sub } : null;
   } catch { return null; }
 }
 

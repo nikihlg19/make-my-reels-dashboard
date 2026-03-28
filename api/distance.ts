@@ -1,4 +1,4 @@
-import { createClerkClient } from '@clerk/backend';
+import { verifyToken } from '@clerk/backend';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') {
@@ -6,15 +6,9 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-    const authHeader = req.headers.authorization || '';
-    const token = authHeader.replace('Bearer ', '');
-
-    if (!token) {
-      return res.status(401).json({ message: 'Unauthorized: No token provided' });
-    }
-
-    await clerkClient.authenticateRequest(req, { secretKey: process.env.CLERK_SECRET_KEY });
+    const token = (req.headers.authorization || '').replace('Bearer ', '');
+    if (!token) return res.status(401).json({ message: 'Unauthorized: No token provided' });
+    await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY! });
   } catch (err) {
     return res.status(401).json({ message: 'Unauthorized: Invalid token' });
   }

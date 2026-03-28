@@ -1,4 +1,4 @@
-import { createClerkClient } from '@clerk/backend';
+import { verifyToken } from '@clerk/backend';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
@@ -14,8 +14,9 @@ export default async function handler(req: any, res: any) {
 
   if (!isCron) {
     try {
-      const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-      await clerkClient.authenticateRequest(req, { secretKey: process.env.CLERK_SECRET_KEY });
+      const token = authHeader.replace('Bearer ', '');
+      if (!token) return res.status(401).json({ message: 'Unauthorized' });
+      await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY! });
     } catch {
       return res.status(401).json({ message: 'Unauthorized' });
     }

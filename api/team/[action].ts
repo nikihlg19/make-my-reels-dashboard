@@ -14,26 +14,28 @@ const supabaseAdmin = createClient(
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 async function verifyAdmin(req: any): Promise<{ userId: string; email: string } | null> {
   try {
-    const { createClerkClient } = await import('@clerk/backend');
-    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-    const authResult = await clerk.authenticateRequest(req, { secretKey: process.env.CLERK_SECRET_KEY });
-    const userId = authResult?.toAuth()?.userId;
+    const { createClerkClient, verifyToken } = await import('@clerk/backend');
+    const token = (req.headers.authorization || '').replace('Bearer ', '');
+    if (!token) return null;
+    const payload = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY! });
+    const userId = payload.sub;
     if (!userId) return null;
+    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
     const user = await clerk.users.getUser(userId);
     const email = user.emailAddresses?.[0]?.emailAddress || '';
     const adminEmails = (process.env.VITE_ADMIN_EMAILS || '').split(',').map((e: string) => e.trim().toLowerCase());
     if (!adminEmails.includes(email.toLowerCase())) return null;
     return { userId, email };
-  } catch { return null; }
+  } catch (err: any) { console.error('[verifyAdmin] exception:', err?.message); return null; }
 }
 
 async function verifyAuth(req: any): Promise<{ userId: string } | null> {
   try {
-    const { createClerkClient } = await import('@clerk/backend');
-    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-    const authResult = await clerk.authenticateRequest(req, { secretKey: process.env.CLERK_SECRET_KEY });
-    const userId = authResult?.toAuth()?.userId;
-    return userId ? { userId } : null;
+    const { verifyToken } = await import('@clerk/backend');
+    const token = (req.headers.authorization || '').replace('Bearer ', '');
+    if (!token) return null;
+    const payload = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY! });
+    return payload.sub ? { userId: payload.sub } : null;
   } catch { return null; }
 }
 

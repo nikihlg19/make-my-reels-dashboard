@@ -252,9 +252,10 @@ async function handleSend(req: VercelRequest, res: VercelResponse) {
 
   if (!isCron) {
     try {
-      const { createClerkClient } = await import('@clerk/backend');
-      const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-      await clerk.authenticateRequest(req, { secretKey: process.env.CLERK_SECRET_KEY });
+      const { verifyToken } = await import('@clerk/backend');
+      const token = authHeader.replace('Bearer ', '');
+      if (!token) return res.status(401).json({ error: 'Unauthorized' });
+      await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY! });
     } catch {
       return res.status(401).json({ error: 'Unauthorized' });
     }
