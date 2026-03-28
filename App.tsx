@@ -546,7 +546,7 @@ const App: React.FC = () => {
 
       {isNewProjectModalOpen && <NewProjectModal isOpen={isNewProjectModalOpen} onClose={() => { setIsNewProjectModalOpen(false); setInitialProjectStatus(undefined); }} initialStatus={initialProjectStatus} team={team} clients={clients} projects={projects} onAddProject={handleProjectCreate} />}
       {editingProject && <EditProjectModal project={editingProject} team={team} clients={clients} projects={projects} onClose={() => setEditingProject(null)} onUpdate={(updated) => { onProjectUpdate(updated); setEditingProject(null); }} isUnlocked={isFinancialsUnlocked} onSmartAssign={setSmartAssignProjectId} />}
-      {smartAssignProject && <AssignTeamModal project={smartAssignProject} onClose={() => setSmartAssignProjectId(null)} />}
+      {smartAssignProject && <AssignTeamModal project={smartAssignProject} onClose={() => setSmartAssignProjectId(null)} teamRoles={teamRoles} />}
       {isNewClientModalOpen && <NewClientModal isOpen={isNewClientModalOpen} onClose={() => setIsNewClientModalOpen(false)} onAddClient={handleClientCreate} existingClients={clients} />}
 
       {previewMember && (

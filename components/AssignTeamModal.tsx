@@ -6,17 +6,17 @@ import { useAssignments } from '../src/hooks/useAssignments';
 import { CandidateRankingList } from './CandidateRankingList';
 import type { RankedCandidate } from '../src/hooks/useCandidateRanking';
 
-const ROLES = ['Videographer', 'Photographer', 'Editor', 'Sales', 'Marketing', 'Reelographer'];
-
+const DEFAULT_ROLES = ['Videographer', 'Photographer', 'Editor', 'Sales', 'Marketing', 'Reelographer'];
 
 interface AssignTeamModalProps {
   project: Project;
   team?: unknown[];
   onClose: () => void;
+  teamRoles?: string[];
 }
 
-export const AssignTeamModal: React.FC<AssignTeamModalProps> = ({ project, onClose }) => {
-  const [selectedRole, setSelectedRole] = useState(ROLES[0]);
+export const AssignTeamModal: React.FC<AssignTeamModalProps> = ({ project, onClose, teamRoles = DEFAULT_ROLES }) => {
+  const [selectedRole, setSelectedRole] = useState(teamRoles[0] || DEFAULT_ROLES[0]);
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [successIds, setSuccessIds] = useState<string[]>([]);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
@@ -74,7 +74,7 @@ export const AssignTeamModal: React.FC<AssignTeamModalProps> = ({ project, onClo
               </button>
               {roleDropdownOpen && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-100 rounded-xl shadow-lg z-10 overflow-hidden">
-                  {ROLES.map(r => (
+                  {teamRoles.map((r: string) => (
                     <button
                       key={r}
                       type="button"

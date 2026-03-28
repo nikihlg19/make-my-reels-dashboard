@@ -54,6 +54,7 @@ export function useSupabaseSync({
       const projects = (projectsRes.data || []).map(rowToProject);
       const team = (teamRes.data || []).map(rowToTeamMember);
       const clients = (clientsRes.data || []).map(rowToClient);
+      if (rolesRes.error) console.warn('[supabaseSync] team_roles fetch failed:', rolesRes.error.message);
       const roles = (rolesRes.data || []).map((r: any) => r.role_name);
 
       setProjects(projects);
