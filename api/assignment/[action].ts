@@ -104,7 +104,7 @@ function buildRespondUrl(assignmentId: string, action: 'accept' | 'decline', tok
 
 // ─── Auto-cascade ─────────────────────────────────────────────────────────────
 async function triggerAutoCascade(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   projectId: string,
   roleNeeded: string,
   assignmentGroupId: string,
