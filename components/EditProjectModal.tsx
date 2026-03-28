@@ -99,38 +99,23 @@ export const EditProjectModal: React.FC<{
   const specialistSectionRef = useRef<HTMLDivElement>(null);
   const dependenciesSectionRef = useRef<HTMLDivElement>(null);
 
-  const scrollSectionIntoView = (container: HTMLElement, element: HTMLElement) => {
-    const containerRect = container.getBoundingClientRect();
-    const elementRect = element.getBoundingClientRect();
-    const scrollTop = container.scrollTop + elementRect.top - containerRect.top - 8;
-    container.scrollTo({ top: scrollTop, behavior: 'smooth' });
+  const scrollSectionIntoView = (element: HTMLElement) => {
+    element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   };
 
   useEffect(() => {
-    if (isClientDropdownOpen && clientSectionRef.current && scrollContainerRef.current) {
-      setTimeout(() => {
-        if (scrollContainerRef.current && clientSectionRef.current)
-          scrollSectionIntoView(scrollContainerRef.current, clientSectionRef.current);
-      }, 50);
-    }
+    if (isClientDropdownOpen && clientSectionRef.current)
+      setTimeout(() => clientSectionRef.current && scrollSectionIntoView(clientSectionRef.current), 50);
   }, [isClientDropdownOpen]);
 
   useEffect(() => {
-    if (isDropdownOpen && specialistSectionRef.current && scrollContainerRef.current) {
-      setTimeout(() => {
-        if (scrollContainerRef.current && specialistSectionRef.current)
-          scrollSectionIntoView(scrollContainerRef.current, specialistSectionRef.current);
-      }, 50);
-    }
+    if (isDropdownOpen && specialistSectionRef.current)
+      setTimeout(() => specialistSectionRef.current && scrollSectionIntoView(specialistSectionRef.current), 50);
   }, [isDropdownOpen]);
 
   useEffect(() => {
-    if (isDependenciesDropdownOpen && dependenciesSectionRef.current && scrollContainerRef.current) {
-      setTimeout(() => {
-        if (scrollContainerRef.current && dependenciesSectionRef.current)
-          scrollSectionIntoView(scrollContainerRef.current, dependenciesSectionRef.current);
-      }, 50);
-    }
+    if (isDependenciesDropdownOpen && dependenciesSectionRef.current)
+      setTimeout(() => dependenciesSectionRef.current && scrollSectionIntoView(dependenciesSectionRef.current), 50);
   }, [isDependenciesDropdownOpen]);
 
   const filteredTeam = useMemo(() => {
