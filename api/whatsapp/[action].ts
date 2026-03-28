@@ -14,7 +14,7 @@ const supabaseAdmin = createClient(
 );
 
 // ─── WhatsApp BSP ─────────────────────────────────────────────────────────────
-const BSP_API_URL = process.env.WHATSAPP_BSP_API_URL || 'https://api.interakt.ai/v1/public/message/';
+const BSP_API_URL = 'https://api.interakt.ai/v1/public/message/';
 const BSP_API_KEY = process.env.WHATSAPP_BSP_API_KEY || '';
 
 async function sendWaTemplate(params: {

@@ -12,7 +12,7 @@ const supabaseAdmin = createClient(
 );
 
 // ─── WhatsApp helpers ─────────────────────────────────────────────────────────
-const BSP_API_URL = process.env.WHATSAPP_BSP_API_URL || 'https://api.interakt.ai/v1/public/message/';
+const BSP_API_URL = 'https://api.interakt.ai/v1/public/message/';
 const BSP_API_KEY = process.env.WHATSAPP_BSP_API_KEY || '';
 
 function buildRespondUrl(assignmentId: string, action: 'accept' | 'decline', token: string): string {
