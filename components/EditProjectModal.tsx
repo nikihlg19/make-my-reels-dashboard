@@ -101,29 +101,16 @@ export const EditProjectModal: React.FC<{
 
   const anyDropdownOpen = isDropdownOpen || isClientDropdownOpen || isDependenciesDropdownOpen || isLocationOpen;
 
-  const scrollSectionIntoView = (element: HTMLElement) => {
+  // Scroll section to top of form — must be called BEFORE setting dropdown open state
+  const scrollSectionIntoView = (sectionRef: React.RefObject<HTMLElement | null>) => {
     const container = scrollContainerRef.current;
-    if (!container) return;
+    const element = sectionRef.current;
+    if (!container || !element) return;
     const containerRect = container.getBoundingClientRect();
     const elementRect = element.getBoundingClientRect();
     const targetScroll = container.scrollTop + elementRect.top - containerRect.top - 8;
     container.scrollTo({ top: targetScroll, behavior: 'instant' });
   };
-
-  useEffect(() => {
-    if (isClientDropdownOpen && clientSectionRef.current)
-      scrollSectionIntoView(clientSectionRef.current);
-  }, [isClientDropdownOpen]);
-
-  useEffect(() => {
-    if (isDropdownOpen && specialistSectionRef.current)
-      scrollSectionIntoView(specialistSectionRef.current);
-  }, [isDropdownOpen]);
-
-  useEffect(() => {
-    if (isDependenciesDropdownOpen && dependenciesSectionRef.current)
-      scrollSectionIntoView(dependenciesSectionRef.current);
-  }, [isDependenciesDropdownOpen]);
 
   const filteredTeam = useMemo(() => {
     let result = team.filter(m => m.name.toLowerCase().includes(teamSearch.toLowerCase()) || (m.location && m.location.toLowerCase().includes(teamSearch.toLowerCase())));
@@ -247,6 +234,7 @@ export const EditProjectModal: React.FC<{
                   className="w-full border-2 border-slate-100 rounded-[16px] p-3 bg-slate-50 cursor-pointer flex justify-between items-center"
                   onClick={(e) => {
                     e.stopPropagation();
+                    if (!isClientDropdownOpen) scrollSectionIntoView(clientSectionRef);
                     setIsClientDropdownOpen(!isClientDropdownOpen);
                     setIsDropdownOpen(false);
                     setIsDependenciesDropdownOpen(false);
@@ -356,6 +344,7 @@ export const EditProjectModal: React.FC<{
                   className="w-full border-2 border-slate-100 rounded-[16px] p-3 bg-slate-50 cursor-pointer flex justify-between items-center"
                   onClick={(e) => {
                     e.stopPropagation();
+                    if (!isDropdownOpen) scrollSectionIntoView(specialistSectionRef);
                     setIsDropdownOpen(!isDropdownOpen);
                     setIsClientDropdownOpen(false);
                     setIsDependenciesDropdownOpen(false);
@@ -758,6 +747,7 @@ export const EditProjectModal: React.FC<{
                   className="w-full border-2 border-slate-100 rounded-[16px] p-3 bg-slate-50 cursor-pointer flex justify-between items-center"
                   onClick={(e) => {
                     e.stopPropagation();
+                    if (!isDependenciesDropdownOpen) scrollSectionIntoView(dependenciesSectionRef);
                     setIsDependenciesDropdownOpen(!isDependenciesDropdownOpen);
                     setIsDropdownOpen(false);
                     setIsClientDropdownOpen(false);
