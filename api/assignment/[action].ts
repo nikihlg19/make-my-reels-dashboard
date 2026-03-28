@@ -63,7 +63,7 @@ async function sendAssignmentRequest(params: {
   const timer = setTimeout(() => controller.abort(), 6000);
   try {
     const res = await fetch(BSP_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Basic ${BSP_API_KEY}` }, body: JSON.stringify(payload), signal: controller.signal });
-    const data = await res.json();
+    const data = await res.text().then(t => { console.log('[WA] interakt status:', res.status, t.slice(0,300)); try { return JSON.parse(t); } catch { throw new Error(`HTTP ${res.status}: ${t.slice(0,200)}`); } });
     if (!res.ok) return { success: false, error: data?.message || `HTTP ${res.status}` };
     return { success: true, messageId: data?.id };
   } catch (err: any) {
@@ -87,7 +87,7 @@ async function sendAssignmentConfirmation(params: {
   const timer = setTimeout(() => controller.abort(), 6000);
   try {
     const res = await fetch(BSP_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Basic ${BSP_API_KEY}` }, body: JSON.stringify(payload), signal: controller.signal });
-    const data = await res.json();
+    const data = await res.text().then(t => { console.log('[WA] interakt status:', res.status, t.slice(0,300)); try { return JSON.parse(t); } catch { throw new Error(`HTTP ${res.status}: ${t.slice(0,200)}`); } });
     if (!res.ok) return { success: false, error: data?.message || `HTTP ${res.status}` };
     return { success: true };
   } catch (err: any) {
@@ -345,7 +345,7 @@ async function handleCandidates(req: any, res: any) {
     await Promise.allSettled(membersWithLocation.map(async (m: any) => {
       try {
         const res = await fetch(`https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(m.location)}&destinations=${encodeURIComponent(project.location)}&key=${apiKey}`);
-        const data = await res.json();
+        const data = await res.text().then(t => { console.log('[WA] interakt status:', res.status, t.slice(0,300)); try { return JSON.parse(t); } catch { throw new Error(`HTTP ${res.status}: ${t.slice(0,200)}`); } });
         if (data.status === 'OK' && data.rows?.[0]?.elements?.[0]?.status === 'OK') distanceMap[m.id] = data.rows[0].elements[0].distance.value / 1000;
       } catch { /* ignore */ }
     }));
