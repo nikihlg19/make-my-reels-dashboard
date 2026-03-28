@@ -1,1 +1,1 @@
-export { default } from '../src/api/subscribe-push';
+export { POST as default } from '../src/api/subscribe-push';
