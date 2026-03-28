@@ -20,13 +20,14 @@ async function verifyAdmin(req: any): Promise<{ userId: string; email: string } 
     const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
     const authResult = await clerk.authenticateRequest(req, { secretKey: process.env.CLERK_SECRET_KEY });
     const userId = authResult?.toAuth()?.userId;
-    if (!userId) return null;
+    if (!userId) { console.error('[verifyAdmin] no userId from Clerk'); return null; }
     const user = await clerk.users.getUser(userId);
     const email = user.emailAddresses?.[0]?.emailAddress || '';
     const adminEmails = (process.env.VITE_ADMIN_EMAILS || '').split(',').map((e: string) => e.trim().toLowerCase());
-    if (!adminEmails.includes(email.toLowerCase())) return null;
+    console.log('[verifyAdmin] email:', email, 'adminEmails:', adminEmails);
+    if (!adminEmails.includes(email.toLowerCase())) { console.error('[verifyAdmin] email not in admin list'); return null; }
     return { userId, email };
-  } catch { return null; }
+  } catch (err: any) { console.error('[verifyAdmin] exception:', err?.message); return null; }
 }
 
 async function verifyAuth(req: any): Promise<{ userId: string } | null> {
