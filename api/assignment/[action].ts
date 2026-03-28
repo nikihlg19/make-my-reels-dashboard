@@ -352,7 +352,8 @@ async function handleCandidates(req: any, res: any) {
   if (!admin) return res.status(403).json({ error: 'Forbidden: admin access required' });
 
   const { projectId, roleNeeded, assignmentGroupId } = req.body || {};
-  if (!projectId || !roleNeeded) return res.status(400).json({ error: 'projectId and roleNeeded are required' });
+  if (!projectId) return res.status(400).json({ error: 'projectId is required' });
+  // roleNeeded can be empty string / 'All' — means rank all members without role filter
 
   const [{ data: project }, { data: members }, { data: availabilityRows }, { data: assignmentRows }] = await Promise.all([
     supabaseAdmin.from('projects').select('*').eq('id', projectId).single(),

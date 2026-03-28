@@ -15,8 +15,10 @@ interface AssignTeamModalProps {
   teamRoles?: string[];
 }
 
+const ALL_ROLES = 'All';
+
 export const AssignTeamModal: React.FC<AssignTeamModalProps> = ({ project, onClose, teamRoles = DEFAULT_ROLES }) => {
-  const [selectedRole, setSelectedRole] = useState(teamRoles[0] || DEFAULT_ROLES[0]);
+  const [selectedRole, setSelectedRole] = useState(ALL_ROLES);
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [successIds, setSuccessIds] = useState<string[]>([]);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
@@ -26,8 +28,17 @@ export const AssignTeamModal: React.FC<AssignTeamModalProps> = ({ project, onClo
   const existingAssignments = getAssignmentsForProject(project.id);
 
   useEffect(() => {
-    fetchCandidates(project.id, selectedRole);
+    // Always fetch with 'All' role (empty string) to get all members ranked
+    fetchCandidates(project.id, selectedRole === ALL_ROLES ? '' : selectedRole);
   }, [project.id, selectedRole]);
+
+  // Client-side filter: when a specific role is selected, only show members with that role
+  const filteredCandidates = selectedRole === ALL_ROLES
+    ? candidates
+    : candidates.filter(c => {
+        const memberRoles = Array.isArray(c.member.role) ? c.member.role : [c.member.role];
+        return memberRoles.some(r => r?.toLowerCase() === selectedRole.toLowerCase());
+      });
 
   const handleAssign = async (candidate: RankedCandidate) => {
     setAssigningId(candidate.member.id);
@@ -74,7 +85,7 @@ export const AssignTeamModal: React.FC<AssignTeamModalProps> = ({ project, onClo
               </button>
               {roleDropdownOpen && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-100 rounded-xl shadow-lg z-10 overflow-hidden">
-                  {teamRoles.map((r: string) => (
+                  {[ALL_ROLES, ...teamRoles].map((r: string) => (
                     <button
                       key={r}
                       type="button"
@@ -111,7 +122,7 @@ export const AssignTeamModal: React.FC<AssignTeamModalProps> = ({ project, onClo
             </div>
           ) : (
             <CandidateRankingList
-              candidates={candidates}
+              candidates={filteredCandidates}
               onAssign={handleAssign}
               assigningId={assigningId}
               alreadyAssignedIds={allAssignedIds}
@@ -124,7 +135,7 @@ export const AssignTeamModal: React.FC<AssignTeamModalProps> = ({ project, onClo
         <div className="p-4 border-t shrink-0 flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-slate-400">
             <Users size={12} />
-            <span className="text-[9px] font-black uppercase tracking-widest">{candidates.length} candidates</span>
+            <span className="text-[9px] font-black uppercase tracking-widest">{filteredCandidates.length} candidates</span>
           </div>
           <button
             type="button"
