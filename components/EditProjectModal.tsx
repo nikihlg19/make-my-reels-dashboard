@@ -100,22 +100,31 @@ export const EditProjectModal: React.FC<{
   const dependenciesSectionRef = useRef<HTMLDivElement>(null);
 
   const scrollSectionIntoView = (element: HTMLElement) => {
-    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    // Temporarily force overflow-y:auto so we can scroll inside the form
+    container.style.overflowY = 'auto';
+    const containerRect = container.getBoundingClientRect();
+    const elementRect = element.getBoundingClientRect();
+    const scrollTop = container.scrollTop + elementRect.top - containerRect.top - 8;
+    container.scrollTo({ top: scrollTop, behavior: 'smooth' });
+    // After scroll animation, switch back to overflow-visible for the dropdown
+    setTimeout(() => { container.style.overflowY = ''; }, 350);
   };
 
   useEffect(() => {
     if (isClientDropdownOpen && clientSectionRef.current)
-      setTimeout(() => clientSectionRef.current && scrollSectionIntoView(clientSectionRef.current), 50);
+      scrollSectionIntoView(clientSectionRef.current);
   }, [isClientDropdownOpen]);
 
   useEffect(() => {
     if (isDropdownOpen && specialistSectionRef.current)
-      setTimeout(() => specialistSectionRef.current && scrollSectionIntoView(specialistSectionRef.current), 50);
+      scrollSectionIntoView(specialistSectionRef.current);
   }, [isDropdownOpen]);
 
   useEffect(() => {
     if (isDependenciesDropdownOpen && dependenciesSectionRef.current)
-      setTimeout(() => dependenciesSectionRef.current && scrollSectionIntoView(dependenciesSectionRef.current), 50);
+      scrollSectionIntoView(dependenciesSectionRef.current);
   }, [isDependenciesDropdownOpen]);
 
   const filteredTeam = useMemo(() => {
