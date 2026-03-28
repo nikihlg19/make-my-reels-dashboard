@@ -97,17 +97,19 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  // On mobile, center the panel; on desktop, right-align below button
-  const getPanelStyle = (): React.CSSProperties => {
-    const isMobile = window.innerWidth < 640;
-    if (isMobile) {
-      return { position: 'fixed', top: 64, left: 8, right: 8, width: 'auto', zIndex: 9999 };
-    }
-    return {};
-  };
   const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({});
   useEffect(() => {
-    if (isOpen) setPanelStyle(getPanelStyle());
+    if (isOpen && buttonRef.current) {
+      const isMobile = window.innerWidth < 640;
+      if (isMobile) {
+        const rect = buttonRef.current.getBoundingClientRect();
+        const panelWidth = Math.min(window.innerWidth - 16, 380);
+        const left = Math.max(8, Math.min(rect.left + rect.width / 2 - panelWidth / 2, window.innerWidth - panelWidth - 8));
+        setPanelStyle({ position: 'fixed', top: rect.bottom + 8, left, width: panelWidth, zIndex: 9999 });
+      } else {
+        setPanelStyle({});
+      }
+    }
   }, [isOpen]);
 
   const { notifications: dbNotifs, unreadCount: dbUnread, markRead, markAllRead } = useDBNotifications();
