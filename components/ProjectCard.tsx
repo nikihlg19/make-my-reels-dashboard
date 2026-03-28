@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Project, TeamMember, Client, ProjectAssignment } from '../types';
 import {
   Instagram, ExternalLink, Trash2, Star, Camera, Target,
-  LinkIcon, Users, CheckCircle, AlertTriangle, Undo2, Send
+  LinkIcon, Users, CheckCircle, AlertTriangle, Undo2, Send, Zap
 } from 'lucide-react';
 import { ADMIN_PHONE, formatDisplayDate } from '../constants';
 import { format, parseISO } from 'date-fns';
@@ -26,6 +26,7 @@ export interface ProjectCardProps {
   isFinancialsUnlocked?: boolean;
   pendingDeleteApprovalId?: string;
   onCancelApproval?: (approvalId: string) => void;
+  onSmartAssign?: (projectId: string) => void;
 }
 
 // Extract UPI ID from the full UPI URL (e.g. "upi://pay?pa=foo@ybl&pn=..." → "foo@ybl")
@@ -41,7 +42,7 @@ function extractUpiId(upiUrl: string): string {
 const ProjectCardInner: React.FC<ProjectCardProps> = ({
   project, team, projects, clients, assignments, onClick, onPreviewMember, onClientClick,
   onDelete, onDragStart, onDragEnd, isFinancialsUnlocked = false,
-  pendingDeleteApprovalId, onCancelApproval
+  pendingDeleteApprovalId, onCancelApproval, onSmartAssign,
 }) => {
   const { session } = useSession();
   const [showConfirmPopover, setShowConfirmPopover] = useState(false);
@@ -366,6 +367,16 @@ const ProjectCardInner: React.FC<ProjectCardProps> = ({
       </div>
 
       <div className="flex items-center justify-between">
+         <div className="flex items-center gap-2">
+         {onSmartAssign && (
+           <button
+             onClick={(e) => { e.stopPropagation(); onSmartAssign(project.id); }}
+             className="flex items-center gap-0.5 text-[8px] font-black uppercase tracking-widest text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-1.5 py-0.5 rounded-md transition-colors"
+             title="Smart Assign team"
+           >
+             <Zap size={9} />Assign
+           </button>
+         )}
          <div className="flex -space-x-1.5">
             {project.teamMemberIds.length > 0 ? (
                <>
@@ -391,6 +402,7 @@ const ProjectCardInner: React.FC<ProjectCardProps> = ({
                   <Users size={12} />
                </div>
             )}
+         </div>
          </div>
          {(() => {
            const parsedLoc = parseLocation(project.location);

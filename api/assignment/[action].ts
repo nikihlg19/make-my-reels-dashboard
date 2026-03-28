@@ -6,12 +6,42 @@
 import { createClient } from '@supabase/supabase-js';
 import { addHours, format, parseISO } from 'date-fns';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import webPush from 'web-push';
 
 // ─── Supabase admin ──────────────────────────────────────────────────────────
 const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+// ─── Web Push ────────────────────────────────────────────────────────────────
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webPush.setVapidDetails(
+    `mailto:${process.env.VAPID_EMAIL || 'admin@makemyreels.in'}`,
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+}
+
+async function sendPushToAdmins(adminUserIds: string[], title: string, body: string, projectId?: string) {
+  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY || adminUserIds.length === 0) return;
+  const { data: subs } = await supabaseAdmin
+    .from('push_subscriptions')
+    .select('endpoint, p256dh, auth')
+    .in('user_id', adminUserIds);
+  if (!subs || subs.length === 0) return;
+  const payload = JSON.stringify({ title, body, data: { url: projectId ? `/?project=${projectId}` : '/' } });
+  await Promise.allSettled(
+    subs.map((sub: any) =>
+      webPush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload)
+        .catch(async (err: any) => {
+          if (err.statusCode === 410 || err.statusCode === 404) {
+            await supabaseAdmin.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+          }
+        })
+    )
+  );
+}
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 async function verifyAdmin(req: any): Promise<{ userId: string; email: string } | null> {
@@ -404,14 +434,35 @@ async function handleRespond(req: any, res: any) {
 
   await supabaseAdmin.from('whatsapp_messages').insert({ direction: 'inbound', recipient_phone: member?.phone || '', recipient_type: 'team_member', recipient_id: assignment.team_member_id, message_type: action === 'accept' ? 'assignment_accepted' : 'assignment_rejected', status: 'delivered', related_project_id: assignment.project_id, related_assignment_id: assignment.id });
 
-  const { data: prefs } = await supabaseAdmin.from('notification_preferences').select('user_id');
-  const adminUserIds = (prefs || []).map((p: any) => p.user_id);
-  if (adminUserIds.length > 0) {
-    await supabaseAdmin.from('notifications').insert(adminUserIds.map((userId: string) => ({ user_id: userId, project_id: assignment.project_id, type: action === 'accept' ? 'assignment_accepted' : 'assignment_declined', title: action === 'accept' ? `${memberName} accepted ${projectTitle}` : `${memberName} declined ${projectTitle}`, message: action === 'accept' ? `${memberName} confirmed availability for ${projectTitle}.` : `${memberName} declined ${projectTitle}. Consider assigning a replacement.`, urgency: action === 'accept' ? 'medium' : 'high' })));
+  // Run cascade first (on decline) so we can include the next person's name in the notification
+  let cascadeResult: { cascaded: boolean; nextMemberName?: string } = { cascaded: false };
+  if (action === 'decline' && assignment.assignment_group_id) {
+    try { cascadeResult = await triggerAutoCascade(supabaseAdmin, assignment.project_id, assignment.role_needed, assignment.assignment_group_id); }
+    catch (err) { console.error('[respond] auto-cascade error:', err); }
   }
 
-  if (action === 'decline' && assignment.assignment_group_id) {
-    try { await triggerAutoCascade(supabaseAdmin, assignment.project_id, assignment.role_needed, assignment.assignment_group_id); } catch (err) { console.error('[respond] auto-cascade error:', err); }
+  const { data: prefs } = await supabaseAdmin.from('notification_preferences').select('user_id');
+  const adminUserIds = (prefs || []).map((p: any) => p.user_id);
+
+  const notifTitle = action === 'accept'
+    ? `✅ ${memberName} accepted — ${projectTitle}`
+    : `❌ ${memberName} declined — ${projectTitle}`;
+  const notifMessage = action === 'accept'
+    ? `${memberName} confirmed availability for "${projectTitle}".`
+    : cascadeResult.cascaded
+      ? `${memberName} declined. Auto-sent request to ${cascadeResult.nextMemberName} next.`
+      : `${memberName} declined "${projectTitle}". Open Smart Assign to find a replacement.`;
+
+  if (adminUserIds.length > 0) {
+    await supabaseAdmin.from('notifications').insert(adminUserIds.map((userId: string) => ({
+      user_id: userId,
+      project_id: assignment.project_id,
+      type: action === 'accept' ? 'assignment_accepted' : 'assignment_declined',
+      title: notifTitle,
+      message: notifMessage,
+      urgency: action === 'accept' ? 'medium' : 'high',
+    })));
+    await sendPushToAdmins(adminUserIds, notifTitle, notifMessage, assignment.project_id);
   }
 
   if (action === 'accept' && member?.phone && project) {

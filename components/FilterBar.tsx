@@ -26,6 +26,7 @@ export interface FilterBarProps {
   setActiveTab: (tab: any) => void;
   setEditingProject: (p: any) => void;
   isAdmin: boolean;
+  onSmartAssign?: (projectId: string) => void;
 }
 
 const FilterBar: React.FC<FilterBarProps> = ({
@@ -45,6 +46,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
   setActiveTab,
   setEditingProject,
   isAdmin,
+  onSmartAssign,
 }) => {
   return (
     <div className="bg-white border-b px-4 md:px-6 py-2 flex flex-col sm:flex-row sm:items-center justify-between shrink-0 shadow-sm z-40 gap-2 sm:gap-0">
@@ -56,7 +58,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
       </div>
 
       <div className="flex flex-wrap items-center gap-4 sm:gap-6 w-full sm:w-auto">
-        <NotificationBell projects={projects} onProjectClick={(id) => { setActiveTab('Board'); setEditingProject(projects.find((p: Project) => p.id === id) || null); }} isAdmin={isAdmin} pendingApprovals={pendingApprovals.filter(a => a.status === 'pending')} onApprove={handleApproveChange} onReject={handleRejectChange} />
+        <NotificationBell projects={projects} onProjectClick={(id) => { setActiveTab('Board'); setEditingProject(projects.find((p: Project) => p.id === id) || null); }} isAdmin={isAdmin} pendingApprovals={pendingApprovals.filter(a => a.status === 'pending')} onApprove={handleApproveChange} onReject={handleRejectChange} onSmartAssign={onSmartAssign} />
         <button
           onClick={() => setShowPaymentQR(true)}
           className="flex items-center justify-center w-9 h-9 bg-slate-900 rounded-xl text-white shadow-sm hover:shadow-md transition-all hover:scale-105 shrink-0"

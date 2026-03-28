@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckCircle, XCircle, MapPin, Star, Briefcase, Zap, ChevronDown, Send } from 'lucide-react';
+import { CheckCircle, XCircle, MapPin, Star, Briefcase, Zap, ChevronDown, Send, RefreshCw } from 'lucide-react';
 import type { RankedCandidate } from '../src/hooks/useCandidateRanking';
 
 interface CandidateRankingListProps {
@@ -116,11 +116,20 @@ export const CandidateRankingList: React.FC<CandidateRankingListProps> = ({
                 <ChevronDown size={14} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
               </button>
 
-              {/* Send button */}
+              {/* Send / Resend button */}
               {isAssigned ? (
-                <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest shrink-0 flex items-center gap-1">
-                  <CheckCircle size={10} />Sent ✓
-                </span>
+                <button
+                  type="button"
+                  disabled={isAssigning}
+                  onClick={() => onAssign(c)}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all shrink-0 ${
+                    isAssigning ? 'bg-amber-400 text-white opacity-70 cursor-wait' :
+                    'bg-amber-100 hover:bg-amber-200 text-amber-700 active:scale-95'
+                  }`}
+                >
+                  <RefreshCw size={9} className={isAssigning ? 'animate-spin' : ''} />
+                  {isAssigning ? 'Sending...' : 'Resend'}
+                </button>
               ) : (
                 <button
                   type="button"

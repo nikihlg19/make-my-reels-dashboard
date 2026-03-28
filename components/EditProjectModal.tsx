@@ -22,7 +22,8 @@ export const EditProjectModal: React.FC<{
   onClose: () => void;
   onUpdate: (p: Project) => void;
   isUnlocked?: boolean;
-}> = ({ project, team, clients, projects, onClose, onUpdate, isUnlocked = false }) => {
+  onSmartAssign?: (projectId: string) => void;
+}> = ({ project, team, clients, projects, onClose, onUpdate, isUnlocked = false, onSmartAssign }) => {
   const [formData, setFormData] = useState<Project>({ ...project, dependencies: project.dependencies || [] });
   const [hasDeadline, setHasDeadline] = useState(!!project.submissionDeadline);
   const [hasTime, setHasTime] = useState(!!project.eventTime);
@@ -259,43 +260,35 @@ export const EditProjectModal: React.FC<{
                   }}
                 >
                   <div className="flex flex-wrap gap-2">
-                    {(!formData.clientIds || formData.clientIds.length === 0) && !formData.clientId ? <span className="text-slate-300 italic font-bold text-xs">-- No Client Linked --</span> :
-                      (formData.clientIds || (formData.clientId ? [formData.clientId] : [])).map(id => {
-                        const client = clients.find(c => c.id === id);
-                        return client ? (
-                          <span key={id} className="bg-slate-900 text-white px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
-                            {client.name || client.company || 'Unknown Client'}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const newIds = (formData.clientIds || (formData.clientId ? [formData.clientId] : [])).filter(cid => cid !== id);
-                                setFormData({...formData, clientIds: newIds, clientId: newIds.length > 0 ? newIds[0] : ''});
-                              }}
-                              className="hover:text-rose-400 ml-1"
-                            >
-                              <X size={10} />
-                            </button>
-                          </span>
-                        ) : null;
-                      })
+                    {(!formData.clientIds || formData.clientIds.length === 0) && !formData.clientId
+                      ? <span className="text-slate-300 italic font-bold text-xs">No client linked</span>
+                      : (formData.clientIds || (formData.clientId ? [formData.clientId] : [])).map(id => {
+                          const client = clients.find(c => c.id === id);
+                          if (!client) return null;
+                          const pillColor = (client.color || 'bg-slate-700').replace(/-(50|100|200|300|400)\b/, '-600').replace(/^bg-white$/, 'bg-slate-700');
+                          return (
+                            <span key={id} className={`${pillColor} text-white px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ring-1 ring-black/10`}>
+                              {client.name || client.company || 'Unknown Client'}
+                            </span>
+                          );
+                        })
                     }
                   </div>
-                  <ChevronDownIcon size={18} className="text-slate-300" />
+                  <ChevronDownIcon size={18} className="text-slate-300 shrink-0" />
                 </div>
 
                 {isClientDropdownOpen && (
-                  <div onClick={e => e.stopPropagation()} className="absolute top-full left-0 right-0 mt-4 bg-white border-2 border-slate-100 rounded-[30px] shadow-2xl p-6 space-y-4 animate-in slide-in-from-top-4 duration-300">
+                  <div onClick={e => e.stopPropagation()} className="absolute top-full left-0 right-0 mt-4 bg-white border-2 border-slate-100 rounded-[30px] shadow-2xl p-6 space-y-2 animate-in slide-in-from-top-4 duration-300">
                     <div className="relative">
                       <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
                       <input
-                        className="w-full bg-slate-50 border-0 outline-none pl-12 pr-4 py-4 rounded-xl font-bold text-sm"
+                        className="w-full bg-slate-50 border-0 outline-none pl-12 pr-4 py-3 rounded-xl font-bold text-sm"
                         placeholder="Search clients..."
                         value={clientSearch}
                         onChange={e => setClientSearch(e.target.value)}
                       />
                     </div>
-                    <div className="max-h-[200px] overflow-y-auto space-y-1 pr-2 custom-scrollbar">
+                    <div className="max-h-[260px] overflow-y-auto space-y-1 pr-2 custom-scrollbar">
                       <div
                         onClick={() => { setFormData({...formData, clientId: '', clientIds: []}); setIsClientDropdownOpen(false); }}
                         className={`flex items-center justify-between p-3.5 rounded-xl cursor-pointer transition-all ${(!formData.clientIds || formData.clientIds.length === 0) && !formData.clientId ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-50'}`}
@@ -303,7 +296,7 @@ export const EditProjectModal: React.FC<{
                         <span className="font-black uppercase tracking-widest text-[10px]">-- No Client Linked --</span>
                         {(!formData.clientIds || formData.clientIds.length === 0) && !formData.clientId && <Check size={16} />}
                       </div>
-                      {filteredClients.slice(0, 5).map(client => {
+                      {filteredClients.slice(0, 10).map(client => {
                         const isSelected = (formData.clientIds || (formData.clientId ? [formData.clientId] : [])).includes(client.id);
                         return (
                           <div
@@ -315,13 +308,24 @@ export const EditProjectModal: React.FC<{
                                 : [...currentIds, client.id];
                               setFormData({...formData, clientIds: newIds, clientId: newIds.length > 0 ? newIds[0] : ''});
                             }}
+                            onDoubleClick={() => {
+                              const currentIds = formData.clientIds || (formData.clientId ? [formData.clientId] : []);
+                              const newIds = currentIds.includes(client.id) ? currentIds : [...currentIds, client.id];
+                              setFormData({...formData, clientIds: newIds, clientId: newIds[0] || ''});
+                              setIsClientDropdownOpen(false);
+                            }}
                             className={`flex items-center justify-between p-3.5 rounded-xl cursor-pointer transition-all ${isSelected ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-50'}`}
                           >
-                            <div className="flex flex-col">
-                              <span className="font-black uppercase tracking-widest text-[10px]">{client.name}</span>
-                              {client.company && <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{client.company}</span>}
+                            <div className="flex items-center gap-3">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black text-white shrink-0 ${client.color || 'bg-slate-900'}`}>
+                                {(client.avatar || client.name || '').replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase()}
+                              </div>
+                              <div className="flex flex-col min-w-0">
+                                <span className="font-black uppercase tracking-widest text-[11px] truncate">{client.name}</span>
+                                {client.company && <span className={`text-[8px] font-bold uppercase tracking-widest ${isSelected ? 'text-indigo-200' : 'text-slate-400'}`}>{client.company}</span>}
+                              </div>
                             </div>
-                            {isSelected && <Check size={16} />}
+                            {isSelected && <Check size={18} className="shrink-0 ml-2" />}
                           </div>
                         );
                       })}
@@ -347,7 +351,7 @@ export const EditProjectModal: React.FC<{
                 <label className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Specialist Deployment</label>
                 <button
                   type="button"
-                  onClick={() => setShowAssignModal(true)}
+                  onClick={() => onSmartAssign ? onSmartAssign(project.id) : setShowAssignModal(true)}
                   className="flex items-center gap-1 text-[8px] font-black uppercase tracking-widest text-indigo-500 hover:text-indigo-700 transition-colors"
                 >
                   <Zap size={9} /> Smart Assign
@@ -374,11 +378,26 @@ export const EditProjectModal: React.FC<{
                   <ChevronDownIcon size={18} className="text-slate-300" />
                 </div>
                 {isDropdownOpen && (
-                  <div onClick={e => e.stopPropagation()} className="absolute top-full left-0 right-0 mt-4 bg-white border-2 border-slate-100 rounded-[30px] shadow-2xl p-6 space-y-4 animate-in slide-in-from-top-4 duration-300">
-                    <input className="w-full bg-slate-50 border-0 outline-none p-4 rounded-xl font-bold text-sm" placeholder="Filter team..." value={teamSearch} onChange={e => setTeamSearch(e.target.value)} />
-                    <div className="max-h-[200px] overflow-y-auto space-y-1 custom-scrollbar pr-2">
+                  <div onClick={e => e.stopPropagation()} className="absolute top-full left-0 right-0 mt-4 bg-white border-2 border-slate-100 rounded-[30px] shadow-2xl p-6 space-y-2 animate-in slide-in-from-top-4 duration-300">
+                    <div className="relative">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                      <input className="w-full bg-slate-50 border-0 outline-none pl-12 pr-4 py-3 rounded-xl font-bold text-sm" placeholder="Search team..." value={teamSearch} onChange={e => setTeamSearch(e.target.value)} />
+                    </div>
+                    <div className="max-h-[260px] overflow-y-auto space-y-1 custom-scrollbar pr-2">
+                      <div
+                        onClick={() => { setFormData({...formData, teamMemberIds: []}); setIsDropdownOpen(false); }}
+                        className={`flex items-center justify-between p-3.5 rounded-xl cursor-pointer transition-all ${formData.teamMemberIds.length === 0 ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-50'}`}
+                      >
+                        <span className="font-black uppercase tracking-widest text-[10px]">-- Unassigned --</span>
+                        {formData.teamMemberIds.length === 0 && <Check size={16} />}
+                      </div>
                       {filteredTeam.map(member => (
-                        <div key={member.id} onClick={() => toggleMember(member.id)} className={`flex items-center justify-between p-3.5 rounded-xl cursor-pointer transition-all ${formData.teamMemberIds.includes(member.id) ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-50'}`}>
+                        <div
+                          key={member.id}
+                          onClick={() => toggleMember(member.id)}
+                          onDoubleClick={() => { if (!formData.teamMemberIds.includes(member.id)) toggleMember(member.id); setIsDropdownOpen(false); }}
+                          className={`flex items-center justify-between p-3.5 rounded-xl cursor-pointer transition-all ${formData.teamMemberIds.includes(member.id) ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-50'}`}
+                        >
                           <div className="flex items-center gap-3">
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black text-white shrink-0 ${member.color || 'bg-slate-900'}`}>{(member.avatar || '').replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase()}</div>
                             <div className="flex flex-col min-w-0">
@@ -394,7 +413,6 @@ export const EditProjectModal: React.FC<{
                               ) : (
                                 <span className={`text-[8px] italic mt-0.5 ${formData.teamMemberIds.includes(member.id) ? 'text-indigo-400/70' : 'text-slate-300'}`}>No location set</span>
                               )}
-                              {/* Conflict Warning */}
                               {projects.filter(p => p.eventDate === formData.eventDate && p.teamMemberIds.includes(member.id) && p.id !== formData.id && p.location !== formData.location && p.status !== 'Completed' && p.status !== 'Expired').length > 0 && (
                                 <span className="text-[9px] text-rose-500 font-bold mt-0.5 animate-pulse flex items-center gap-1">
                                   ⚠️ Shoot conflict today!
@@ -405,6 +423,7 @@ export const EditProjectModal: React.FC<{
                           {formData.teamMemberIds.includes(member.id) && <Check size={18} className="shrink-0 ml-2" />}
                         </div>
                       ))}
+                      {filteredTeam.length === 0 && <p className="text-center text-slate-300 text-xs py-4 font-bold">No members found</p>}
                     </div>
                   </div>
                 )}
@@ -428,7 +447,7 @@ export const EditProjectModal: React.FC<{
                     return (
                       <div key={memberId} className="flex items-center justify-between bg-slate-50 rounded-2xl px-4 py-3 border border-slate-100">
                         <div className="flex items-center gap-3">
-                          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-black text-white ${member.color || 'bg-slate-700'}`}>
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-black text-white ${member.color || 'bg-green-600'}`}>
                             {(member.avatar || '').replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase()}
                           </div>
                           <div className="flex flex-col">
@@ -791,7 +810,7 @@ export const EditProjectModal: React.FC<{
           </div>
         </form>
       </div>
-      {showAssignModal && (
+      {!onSmartAssign && showAssignModal && (
         <AssignTeamModal project={project} team={team} onClose={() => setShowAssignModal(false)} />
       )}
     </div>

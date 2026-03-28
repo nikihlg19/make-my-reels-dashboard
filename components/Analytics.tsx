@@ -203,7 +203,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ team, projects, clients = [], dat
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
         <SummaryCard icon={<Target size={28} />} label="Period Projects" value={totalProjects} bgColor="bg-indigo-600" />
-        <SummaryCard icon={<CheckCircle2 size={28} />} label="Closed Deliveries" value={completedCount} bgColor="bg-emerald-50" />
+        <SummaryCard icon={<CheckCircle2 size={28} />} label="Closed Deliveries" value={completedCount} bgColor="bg-emerald-700" />
         <SummaryCard icon={<Users size={28} />} label="Specialists" value={totalMembers} bgColor="bg-slate-900" />
         <SummaryCard icon={<Star size={28} />} label="Average Quality" value={avgRatingValue} bgColor="bg-amber-500" />
       </div>

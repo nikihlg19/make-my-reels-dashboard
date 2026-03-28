@@ -29,6 +29,7 @@ interface BoardProps {
   onPreviewMember?: (member: TeamMember) => void;
   onClientClick?: (clientId: string) => void;
   isMobileStacked?: boolean;
+  onSmartAssign?: (projectId: string) => void;
 }
 
 const COLUMNS: ProjectStatus[] = ['Expired', 'Quote Sent', 'To Do', 'In Progress'];
@@ -48,7 +49,8 @@ const Board: React.FC<BoardProps> = ({
   onRequestUnlock,
   onPreviewMember,
   onClientClick,
-  isMobileStacked = false
+  isMobileStacked = false,
+  onSmartAssign,
 }) => {
   const [expandedCompleted, setExpandedCompleted] = useState(false);
   const [pendingVaultOpen, setPendingVaultOpen] = useState(false);
@@ -178,6 +180,7 @@ const Board: React.FC<BoardProps> = ({
                   isFinancialsUnlocked={isFinancialsUnlocked}
                   pendingDeleteApprovalId={pendingProjectDeletes.find(pd => pd.projectId === project.id)?.approvalId}
                   onCancelApproval={onCancelApproval}
+                  onSmartAssign={onSmartAssign}
                 />
               ))}
 

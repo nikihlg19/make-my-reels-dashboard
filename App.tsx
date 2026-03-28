@@ -14,6 +14,7 @@ const Clients = lazy(() => import('./components/Clients'));
 
 // These are needed eagerly (used in modals outside tabs)
 import { EditProjectModal } from './components/EditProjectModal';
+import { AssignTeamModal } from './components/AssignTeamModal';
 import TeamMemberCard from './components/TeamMemberCard';
 import { ClientCard } from './components/Clients';
 import NewProjectModal from './components/NewProjectModal';
@@ -83,6 +84,7 @@ const App: React.FC = () => {
   const [showPaymentQR, setShowPaymentQR] = useState(false);
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [showDigest, setShowDigest] = useState(false);
+  const [smartAssignProjectId, setSmartAssignProjectId] = useState<string | null>(null);
 
   const { digest } = useAdminDigest();
   const digestUrgent = digest
@@ -377,6 +379,7 @@ const App: React.FC = () => {
   const activeProjects = useMemo(() => projects.filter(p => !p.isDeleted), [projects]);
   const activeTeam = useMemo(() => team.filter(t => !t.isDeleted), [team]);
   const activeClients = useMemo(() => clients.filter(c => !c.isDeleted), [clients]);
+  const smartAssignProject = smartAssignProjectId ? (activeProjects.find(p => p.id === smartAssignProjectId) ?? null) : null;
 
   const pendingProjectDeletes = useMemo(() =>
     pendingApprovals
@@ -466,11 +469,12 @@ const App: React.FC = () => {
             setActiveTab={setActiveTab}
             setEditingProject={setEditingProject}
             isAdmin={isAdmin}
+            onSmartAssign={setSmartAssignProjectId}
           />
 
       <main className="flex-1 relative overflow-hidden bg-[#F4F5F7]">
         <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="animate-spin w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full" /></div>}>
-          {activeTab === 'Board' && <Board projects={filteredProjects} team={activeTeam} clients={activeClients} isAdmin={isAdmin} pendingProjectDeletes={pendingProjectDeletes} onCancelApproval={onCancelApproval} onProjectUpdate={onProjectUpdate} onProjectDelete={onProjectDelete} onEditProject={setEditingProject} onCreateProjectWithStatus={(status: ProjectStatus) => { setInitialProjectStatus(status); setIsNewProjectModalOpen(true); }} isFinancialsUnlocked={isFinancialsUnlocked} onRequestUnlock={handleUnlockSuccess} onPreviewMember={setPreviewMember} onClientClick={(clientId: string) => { const client = activeClients.find(c => c.id === clientId); if (client) { setPreviewClient(client); } }} isMobileStacked={isMobileStacked} />}
+          {activeTab === 'Board' && <Board projects={filteredProjects} team={activeTeam} clients={activeClients} isAdmin={isAdmin} pendingProjectDeletes={pendingProjectDeletes} onCancelApproval={onCancelApproval} onProjectUpdate={onProjectUpdate} onProjectDelete={onProjectDelete} onEditProject={setEditingProject} onCreateProjectWithStatus={(status: ProjectStatus) => { setInitialProjectStatus(status); setIsNewProjectModalOpen(true); }} isFinancialsUnlocked={isFinancialsUnlocked} onRequestUnlock={handleUnlockSuccess} onPreviewMember={setPreviewMember} onClientClick={(clientId: string) => { const client = activeClients.find(c => c.id === clientId); if (client) { setPreviewClient(client); } }} isMobileStacked={isMobileStacked} onSmartAssign={setSmartAssignProjectId} />}
           {activeTab === 'Calendar' && <Calendar projects={activeProjects} onCreateProject={() => setIsNewProjectModalOpen(true)} onEditProject={(id: string) => setEditingProject(projects.find(p => p.id === id) || null)} />}
           {activeTab === 'Clients' && <Clients clients={activeClients} projects={activeProjects} team={activeTeam} isAdmin={isAdmin} onAddClient={() => setIsNewClientModalOpen(true)} onUpdateClient={handleClientUpdate} onDeleteClient={handleClientDelete} onEditProject={setEditingProject} onDeleteProject={onProjectDelete} onPreviewMember={setPreviewMember} editingClient={editingClient} setEditingClient={setEditingClient} isFinancialsUnlocked={isFinancialsUnlocked} globalSearchQuery={searchQuery} />}
           {activeTab === 'Team' && <Team team={activeTeam} projects={activeProjects} teamRoles={teamRoles} isAdmin={isAdmin} onAddMember={(m: TeamMember) => handleTeamMemberCreate(m)} onDeleteMember={handleTeamMemberDelete} onUpdateMember={handleTeamMemberUpdate} onUpdateMemberTags={(id: string, tags: string[]) => { const tm = team.find(t=>t.id===id); if(tm) handleTeamMemberUpdate({...tm, tags}); }} onUpdateMemberNotes={(id: string, notes: string) => { const tm = team.find(t=>t.id===id); if(tm) handleTeamMemberUpdate({...tm, onboardingNotes: notes}); }} onEditProject={setEditingProject} isFinancialsUnlocked={isFinancialsUnlocked} whatsappMember={null} setWhatsappMember={() => {}} memberForTags={memberForTags} setMemberForTags={setMemberForTags} onGlobalUnlock={handleUnlockSuccess} globalSearchQuery={searchQuery} />}
@@ -541,7 +545,8 @@ const App: React.FC = () => {
       )}
 
       {isNewProjectModalOpen && <NewProjectModal isOpen={isNewProjectModalOpen} onClose={() => { setIsNewProjectModalOpen(false); setInitialProjectStatus(undefined); }} initialStatus={initialProjectStatus} team={team} clients={clients} projects={projects} onAddProject={handleProjectCreate} />}
-      {editingProject && <EditProjectModal project={editingProject} team={team} clients={clients} projects={projects} onClose={() => setEditingProject(null)} onUpdate={(updated) => { onProjectUpdate(updated); setEditingProject(null); }} isUnlocked={isFinancialsUnlocked} />}
+      {editingProject && <EditProjectModal project={editingProject} team={team} clients={clients} projects={projects} onClose={() => setEditingProject(null)} onUpdate={(updated) => { onProjectUpdate(updated); setEditingProject(null); }} isUnlocked={isFinancialsUnlocked} onSmartAssign={setSmartAssignProjectId} />}
+      {smartAssignProject && <AssignTeamModal project={smartAssignProject} onClose={() => setSmartAssignProjectId(null)} />}
       {isNewClientModalOpen && <NewClientModal isOpen={isNewClientModalOpen} onClose={() => setIsNewClientModalOpen(false)} onAddClient={handleClientCreate} existingClients={clients} />}
 
       {previewMember && (
