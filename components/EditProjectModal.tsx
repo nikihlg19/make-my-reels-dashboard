@@ -278,7 +278,7 @@ export const EditProjectModal: React.FC<{
                 </div>
 
                 {isClientDropdownOpen && (
-                  <div onClick={e => e.stopPropagation()} className="absolute top-full left-0 right-0 mt-4 bg-white border-2 border-slate-100 rounded-[30px] shadow-2xl p-6 space-y-2 animate-in slide-in-from-top-4 duration-300">
+                  <div onClick={e => e.stopPropagation()} className="absolute top-full left-0 right-0 mt-4 bg-white border-2 border-slate-100 rounded-[30px] shadow-2xl p-4 animate-in slide-in-from-top-4 duration-300">
                     <div className="relative">
                       <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
                       <input
@@ -288,7 +288,7 @@ export const EditProjectModal: React.FC<{
                         onChange={e => setClientSearch(e.target.value)}
                       />
                     </div>
-                    <div className="max-h-[260px] overflow-y-auto space-y-1 pr-2 custom-scrollbar">
+                    <div className="max-h-[260px] overflow-y-auto space-y-1 pr-2 custom-scrollbar mt-1">
                       <div
                         onClick={() => { setFormData({...formData, clientId: '', clientIds: []}); setIsClientDropdownOpen(false); }}
                         className={`flex items-center justify-between p-3.5 rounded-xl cursor-pointer transition-all ${(!formData.clientIds || formData.clientIds.length === 0) && !formData.clientId ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-50'}`}
@@ -378,12 +378,12 @@ export const EditProjectModal: React.FC<{
                   <ChevronDownIcon size={18} className="text-slate-300" />
                 </div>
                 {isDropdownOpen && (
-                  <div onClick={e => e.stopPropagation()} className="absolute top-full left-0 right-0 mt-4 bg-white border-2 border-slate-100 rounded-[30px] shadow-2xl p-6 space-y-2 animate-in slide-in-from-top-4 duration-300">
+                  <div onClick={e => e.stopPropagation()} className="absolute top-full left-0 right-0 mt-4 bg-white border-2 border-slate-100 rounded-[30px] shadow-2xl p-4 animate-in slide-in-from-top-4 duration-300">
                     <div className="relative">
                       <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
                       <input className="w-full bg-slate-50 border-0 outline-none pl-12 pr-4 py-3 rounded-xl font-bold text-sm" placeholder="Search team..." value={teamSearch} onChange={e => setTeamSearch(e.target.value)} />
                     </div>
-                    <div className="max-h-[260px] overflow-y-auto space-y-1 custom-scrollbar pr-2">
+                    <div className="max-h-[260px] overflow-y-auto space-y-1 custom-scrollbar pr-2 mt-1">
                       <div
                         onClick={() => { setFormData({...formData, teamMemberIds: []}); setIsDropdownOpen(false); }}
                         className={`flex items-center justify-between p-3.5 rounded-xl cursor-pointer transition-all ${formData.teamMemberIds.length === 0 ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-50'}`}

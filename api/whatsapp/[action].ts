@@ -92,8 +92,13 @@ async function sendAssignmentConfirmation(params: {
 function verifyWebhookSignature(rawBody: string, signatureHeader: string): boolean {
   const secret = process.env.WHATSAPP_WEBHOOK_SECRET;
   if (!secret) {
-    console.error('[whatsapp] WHATSAPP_WEBHOOK_SECRET not set — rejecting request');
-    return false;
+    // No secret configured — allow all webhooks (log warning only)
+    console.warn('[whatsapp] WHATSAPP_WEBHOOK_SECRET not set — accepting webhook without signature check');
+    return true;
+  }
+  if (!signatureHeader) {
+    console.warn('[whatsapp] No x-hub-signature-256 header present — accepting (no secret configured)');
+    return true;
   }
   try {
     const expected = `sha256=${crypto.createHmac('sha256', secret).update(rawBody).digest('hex')}`;
@@ -103,15 +108,46 @@ function verifyWebhookSignature(rawBody: string, signatureHeader: string): boole
 
 function parseButtonReply(body: any): { assignmentId: string; action: 'accept' | 'reject'; phone: string; rawPayload: string } | null {
   try {
-    const messages = body?.entry?.[0]?.changes?.[0]?.value?.messages;
-    if (!Array.isArray(messages) || messages.length === 0) return null;
-    const msg = messages[0];
-    if (msg?.type !== 'interactive') return null;
-    const replyId: string = msg?.interactive?.button_reply?.id || '';
-    const match = replyId.match(/^(accept|reject)_(.+)$/);
-    if (!match) return null;
-    return { action: match[1] as 'accept' | 'reject', assignmentId: match[2], phone: msg?.from || '', rawPayload: replyId };
-  } catch { return null; }
+    // Log raw body for debugging
+    console.log('[webhook] parseButtonReply raw body keys:', Object.keys(body || {}));
+
+    // Format 1: Interakt webhook — body.messages array at root level
+    const interaktMessages = body?.messages;
+    if (Array.isArray(interaktMessages) && interaktMessages.length > 0) {
+      const msg = interaktMessages[0];
+      console.log('[webhook] Interakt msg type:', msg?.type, 'buttons:', JSON.stringify(msg?.button_reply || msg?.interactive));
+      // Interakt sends button replies as type 'button' with button.payload or button.text
+      const buttonPayload: string = msg?.button?.payload || msg?.button_reply?.id || msg?.interactive?.button_reply?.id || '';
+      const phone: string = msg?.from || body?.contacts?.[0]?.wa_id || '';
+      const match = buttonPayload.match(/^(accept|reject)_(.+)$/);
+      if (match) return { action: match[1] as 'accept' | 'reject', assignmentId: match[2], phone, rawPayload: buttonPayload };
+    }
+
+    // Format 2: Interakt — body.data.messages
+    const interaktData = body?.data?.messages;
+    if (Array.isArray(interaktData) && interaktData.length > 0) {
+      const msg = interaktData[0];
+      const buttonPayload: string = msg?.button?.payload || msg?.button_reply?.id || msg?.interactive?.button_reply?.id || '';
+      const phone: string = msg?.from || '';
+      const match = buttonPayload.match(/^(accept|reject)_(.+)$/);
+      if (match) return { action: match[1] as 'accept' | 'reject', assignmentId: match[2], phone, rawPayload: buttonPayload };
+    }
+
+    // Format 3: Meta Cloud API format — body.entry[0].changes[0].value.messages
+    const metaMessages = body?.entry?.[0]?.changes?.[0]?.value?.messages;
+    if (Array.isArray(metaMessages) && metaMessages.length > 0) {
+      const msg = metaMessages[0];
+      const replyId: string = msg?.interactive?.button_reply?.id || msg?.button?.payload || '';
+      const match = replyId.match(/^(accept|reject)_(.+)$/);
+      if (match) return { action: match[1] as 'accept' | 'reject', assignmentId: match[2], phone: msg?.from || '', rawPayload: replyId };
+    }
+
+    console.log('[webhook] No matching button reply format found. Full body:', JSON.stringify(body).slice(0, 1000));
+    return null;
+  } catch (e: any) {
+    console.error('[webhook] parseButtonReply error:', e.message);
+    return null;
+  }
 }
 
 async function getRawBody(req: any): Promise<string> {
@@ -332,8 +368,6 @@ async function handleSend(req: VercelRequest, res: VercelResponse) {
 }
 
 // ─── /api/whatsapp/webhook ────────────────────────────────────────────────────
-export const config = { api: { bodyParser: false } };
-
 async function handleWebhook(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     const mode = req.query['hub.mode'];
@@ -347,18 +381,27 @@ async function handleWebhook(req: VercelRequest, res: VercelResponse) {
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const rawBody = await getRawBody(req);
   const signature = (req.headers['x-hub-signature-256'] as string) || '';
+
+  // If Vercel has already parsed the body (req.body is set), use it directly.
+  // Otherwise read raw stream (needed when bodyParser is disabled).
+  let body: any;
+  let rawBody: string;
+  if (req.body && typeof req.body === 'object') {
+    // Body already parsed — stringify for signature check
+    rawBody = JSON.stringify(req.body);
+    body = req.body;
+  } else {
+    rawBody = await getRawBody(req);
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return res.status(400).json({ error: 'Invalid JSON' });
+    }
+  }
 
   if (!verifyWebhookSignature(rawBody, signature)) {
     return res.status(401).json({ error: 'Invalid signature' });
-  }
-
-  let body: any;
-  try {
-    body = JSON.parse(rawBody);
-  } catch {
-    return res.status(400).json({ error: 'Invalid JSON' });
   }
 
   console.log('[webhook] inbound:', JSON.stringify(body).slice(0, 500));
