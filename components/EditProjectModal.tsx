@@ -99,17 +99,15 @@ export const EditProjectModal: React.FC<{
   const specialistSectionRef = useRef<HTMLDivElement>(null);
   const dependenciesSectionRef = useRef<HTMLDivElement>(null);
 
+  const anyDropdownOpen = isDropdownOpen || isClientDropdownOpen || isDependenciesDropdownOpen || isLocationOpen;
+
   const scrollSectionIntoView = (element: HTMLElement) => {
     const container = scrollContainerRef.current;
     if (!container) return;
-    // Temporarily force overflow-y:auto so we can scroll inside the form
-    container.style.overflowY = 'auto';
     const containerRect = container.getBoundingClientRect();
     const elementRect = element.getBoundingClientRect();
-    const scrollTop = container.scrollTop + elementRect.top - containerRect.top - 8;
-    container.scrollTo({ top: scrollTop, behavior: 'smooth' });
-    // After scroll animation, switch back to overflow-visible for the dropdown
-    setTimeout(() => { container.style.overflowY = ''; }, 350);
+    const targetScroll = container.scrollTop + elementRect.top - containerRect.top - 8;
+    container.scrollTo({ top: targetScroll, behavior: 'instant' });
   };
 
   useEffect(() => {
@@ -235,7 +233,7 @@ export const EditProjectModal: React.FC<{
           <button onClick={onClose} className="p-3 hover:bg-slate-100 rounded-[20px] text-slate-400 hover:text-slate-900 transition-all active:scale-90"><X size={24} /></button>
         </div>
 
-        <form ref={scrollContainerRef} onSubmit={handleSubmit} className={`flex-1 custom-scrollbar p-6 space-y-4 ${isDropdownOpen || isClientDropdownOpen || isDependenciesDropdownOpen || isLocationOpen ? 'overflow-visible' : 'overflow-y-auto'}`}>
+        <form ref={scrollContainerRef} onSubmit={handleSubmit} className={`flex-1 custom-scrollbar p-6 space-y-4 ${anyDropdownOpen ? 'overflow-visible' : 'overflow-y-auto'}`}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="col-span-1 md:col-span-2 space-y-1">
               <label className="text-[9px] font-black text-slate-300 uppercase tracking-widest ml-2">Deliverable Title</label>
