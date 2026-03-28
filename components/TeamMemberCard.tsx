@@ -26,6 +26,20 @@ const TeamMemberCard: React.FC<TeamMemberCardProps> = ({ member, projects, onCon
   const activeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ratingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [popupAlign, setPopupAlign] = useState<'left' | 'center' | 'right'>('center');
+
+  const checkPopupAlignment = () => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const POPUP_W = 256;
+    if (rect.left < POPUP_W / 2) setPopupAlign('left');
+    else if (rect.right > vw - POPUP_W / 2) setPopupAlign('right');
+    else setPopupAlign('center');
+  };
+
+  const popupPos = popupAlign === 'left' ? 'left-0' : popupAlign === 'right' ? 'right-0' : 'left-1/2 -translate-x-1/2';
 
   const [showAuth, setShowAuth] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
@@ -75,6 +89,7 @@ const TeamMemberCard: React.FC<TeamMemberCardProps> = ({ member, projects, onCon
   // Tooltip Mouse Handlers
   const handleActiveEnter = () => {
     if (activeTimeoutRef.current) clearTimeout(activeTimeoutRef.current);
+    checkPopupAlignment();
     setShowActivePeek(true);
   };
 
@@ -86,6 +101,7 @@ const TeamMemberCard: React.FC<TeamMemberCardProps> = ({ member, projects, onCon
 
   const handleClosedEnter = () => {
     if (closedTimeoutRef.current) clearTimeout(closedTimeoutRef.current);
+    checkPopupAlignment();
     setShowClosedPeek(true);
   };
 
@@ -97,6 +113,7 @@ const TeamMemberCard: React.FC<TeamMemberCardProps> = ({ member, projects, onCon
 
   const handleRatingEnter = () => {
     if (ratingTimeoutRef.current) clearTimeout(ratingTimeoutRef.current);
+    checkPopupAlignment();
     setShowRatingPeek(true);
   };
 
@@ -107,7 +124,7 @@ const TeamMemberCard: React.FC<TeamMemberCardProps> = ({ member, projects, onCon
   };
 
   return (
-    <div className="bg-white rounded-[20px] p-4 shadow-sm border border-slate-100 hover:shadow-md transition-all group relative animate-in fade-in zoom-in-95 duration-300 flex flex-col h-full hover:z-50 overflow-visible">
+    <div ref={cardRef} className="bg-white rounded-[20px] p-4 shadow-sm border border-slate-100 hover:shadow-md transition-all group relative animate-in fade-in zoom-in-95 duration-300 flex flex-col h-full hover:z-50 overflow-visible">
       {/* ... header controls ... */}
       <div className="absolute top-2 right-2 flex gap-1 z-10">
         {isAdmin && (
@@ -169,7 +186,7 @@ const TeamMemberCard: React.FC<TeamMemberCardProps> = ({ member, projects, onCon
 
               {showRatingPeek && completedAssignments.filter(p => p.rating !== undefined).length > 0 && (
                 <div
-                  className="absolute top-full left-1/2 -translate-x-1/2 pt-2 w-64 z-[200] animate-in zoom-in-95 slide-in-from-top-2 duration-200"
+                  className={`absolute top-full ${popupPos} pt-2 w-64 z-[200] animate-in zoom-in-95 slide-in-from-top-2 duration-200`}
                   onMouseEnter={handleRatingEnter}
                   onMouseLeave={handleRatingLeave}
                 >
@@ -260,7 +277,7 @@ const TeamMemberCard: React.FC<TeamMemberCardProps> = ({ member, projects, onCon
 
             {showActivePeek && activeAssignments.length > 0 && (
               <div
-                className="absolute bottom-full left-1/2 -translate-x-1/2 pb-2 w-64 z-[200] animate-in zoom-in-95 slide-in-from-bottom-2 duration-200"
+                className={`absolute bottom-full ${popupPos} pb-2 w-64 z-[200] animate-in zoom-in-95 slide-in-from-bottom-2 duration-200`}
                 onMouseEnter={handleActiveEnter}
                 onMouseLeave={handleActiveLeave}
               >
@@ -304,7 +321,7 @@ const TeamMemberCard: React.FC<TeamMemberCardProps> = ({ member, projects, onCon
 
             {showClosedPeek && completedAssignments.length > 0 && (
               <div
-                className="absolute bottom-full left-1/2 -translate-x-1/2 pb-2 w-64 z-[200] animate-in zoom-in-95 slide-in-from-bottom-2 duration-200"
+                className={`absolute bottom-full ${popupPos} pb-2 w-64 z-[200] animate-in zoom-in-95 slide-in-from-bottom-2 duration-200`}
                 onMouseEnter={handleClosedEnter}
                 onMouseLeave={handleClosedLeave}
               >

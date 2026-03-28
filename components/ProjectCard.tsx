@@ -79,11 +79,9 @@ const ProjectCardInner: React.FC<ProjectCardProps> = ({
             .map(m => m!.name)
             .join(', ')
         : 'To be assigned';
-      const amountLine = !isFinancialsUnlocked
-        ? '[Amount hidden]'
-        : (project.invoice_amount && project.invoice_amount > 0)
-          ? String(project.invoice_amount)
-          : 'TBD';
+      const amountLine = (project.invoice_amount && project.invoice_amount > 0)
+        ? String(project.invoice_amount)
+        : 'TBD';
 
       const res = await fetch('/api/whatsapp/send', {
         method: 'POST',

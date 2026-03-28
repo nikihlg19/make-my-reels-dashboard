@@ -249,7 +249,7 @@ export const EditProjectModal: React.FC<{
 
             <div ref={clientSectionRef} className="col-span-1 md:col-span-2 space-y-1">
               <label className="text-[9px] font-black text-slate-300 uppercase tracking-widest ml-2 flex items-center gap-1.5"><Briefcase size={12} /> Client Account</label>
-              <div className="relative w-full z-[60]">
+              <div className={`relative w-full ${isClientDropdownOpen ? 'z-[100]' : 'z-[30]'}`}>
                 <div
                   className="w-full border-2 border-slate-100 rounded-[16px] p-3 bg-slate-50 cursor-pointer flex justify-between items-center"
                   onClick={(e) => {
@@ -265,7 +265,7 @@ export const EditProjectModal: React.FC<{
                       : (formData.clientIds || (formData.clientId ? [formData.clientId] : [])).map(id => {
                           const client = clients.find(c => c.id === id);
                           if (!client) return null;
-                          const pillColor = (client.color || 'bg-slate-700').replace(/-(50|100|200|300|400)\b/, '-600').replace(/^bg-white$/, 'bg-slate-700');
+                          const pillColor = 'bg-slate-900';
                           return (
                             <span key={id} className={`${pillColor} text-white px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ring-1 ring-black/10`}>
                               {client.name || client.company || 'Unknown Client'}
@@ -336,7 +336,7 @@ export const EditProjectModal: React.FC<{
               </div>
             </div>
 
-            <div className="col-span-1 md:col-span-2 space-y-1">
+            <div className="col-span-1 md:col-span-2 space-y-1 relative z-[70]">
               <label className="text-[9px] font-black text-slate-300 uppercase tracking-widest ml-2">Location</label>
               <LocationAutocomplete
                 value={formData.location}
@@ -357,7 +357,7 @@ export const EditProjectModal: React.FC<{
                   <Zap size={9} /> Smart Assign
                 </button>
               </div>
-              <div className="relative w-full z-50">
+              <div className={`relative w-full ${isDropdownOpen ? 'z-[100]' : 'z-[20]'}`}>
                 <div
                   className="w-full border-2 border-slate-100 rounded-[16px] p-3 bg-slate-50 cursor-pointer flex justify-between items-center"
                   onClick={(e) => {
@@ -759,7 +759,7 @@ export const EditProjectModal: React.FC<{
 
             <div ref={dependenciesSectionRef} className="col-span-1 md:col-span-2 space-y-1">
               <label className="text-[9px] font-black text-slate-300 uppercase tracking-widest ml-2 flex items-center gap-1.5"><LinkIcon size={12} /> Dependencies (Must be completed first)</label>
-              <div className="relative w-full z-40">
+              <div className={`relative w-full ${isDependenciesDropdownOpen ? 'z-[100]' : 'z-[10]'}`}>
                 <div
                   className="w-full border-2 border-slate-100 rounded-[16px] p-3 bg-slate-50 cursor-pointer flex justify-between items-center"
                   onClick={(e) => {
