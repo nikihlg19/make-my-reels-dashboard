@@ -95,6 +95,20 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
   const [activeTab, setActiveTab] = useState<'all' | 'unread' | 'approvals'>('all');
   const [testPushStatus, setTestPushStatus] = useState<'idle' | 'sending' | 'sent' | 'blocked'>('idle');
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  // On mobile, center the panel; on desktop, right-align below button
+  const getPanelStyle = (): React.CSSProperties => {
+    const isMobile = window.innerWidth < 640;
+    if (isMobile) {
+      return { position: 'fixed', top: 64, left: 8, right: 8, width: 'auto', zIndex: 9999 };
+    }
+    return {};
+  };
+  const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({});
+  useEffect(() => {
+    if (isOpen) setPanelStyle(getPanelStyle());
+  }, [isOpen]);
 
   const { notifications: dbNotifs, unreadCount: dbUnread, markRead, markAllRead } = useDBNotifications();
 
@@ -207,6 +221,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
   return (
     <div className="relative" ref={dropdownRef}>
       <button
+        ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2.5 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 rounded-2xl transition-all group"
       >
@@ -217,7 +232,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-3 w-[calc(100vw-16px)] max-w-[380px] -translate-x-[calc(100vw-100%-8px)] sm:translate-x-0 sm:w-[380px] bg-slate-50/80 backdrop-blur-3xl rounded-[28px] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] border border-slate-200/60 z-50 overflow-hidden animate-in zoom-in-95 slide-in-from-top-4 duration-200">
+        <div className="absolute right-0 mt-3 w-[380px] max-w-[calc(100vw-16px)] bg-slate-50/80 backdrop-blur-3xl rounded-[28px] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] border border-slate-200/60 z-50 overflow-hidden animate-in zoom-in-95 slide-in-from-top-4 duration-200" style={panelStyle}>
 
           {/* Header */}
           <div className="p-5 border-b border-slate-200/60 flex flex-col gap-4 bg-white/80">
