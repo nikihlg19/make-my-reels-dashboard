@@ -102,14 +102,14 @@ export const EditProjectModal: React.FC<{
   const anyDropdownOpen = isDropdownOpen || isClientDropdownOpen || isDependenciesDropdownOpen || isLocationOpen;
 
   // Scroll section to top of form — must be called BEFORE setting dropdown open state
-  const scrollSectionIntoView = (sectionRef: React.RefObject<HTMLElement | null>) => {
+  const scrollSectionIntoView = (sectionRef: React.RefObject<HTMLElement | null>, topOffset = 8) => {
     const container = scrollContainerRef.current;
     const element = sectionRef.current;
     if (!container || !element) return;
     const containerRect = container.getBoundingClientRect();
     const elementRect = element.getBoundingClientRect();
-    const targetScroll = container.scrollTop + elementRect.top - containerRect.top - 8;
-    container.scrollTo({ top: targetScroll, behavior: 'instant' });
+    const targetScroll = container.scrollTop + elementRect.top - containerRect.top - topOffset;
+    container.scrollTo({ top: Math.max(0, targetScroll), behavior: 'instant' });
   };
 
   const filteredTeam = useMemo(() => {
@@ -344,7 +344,7 @@ export const EditProjectModal: React.FC<{
                   className="w-full border-2 border-slate-100 rounded-[16px] p-3 bg-slate-50 cursor-pointer flex justify-between items-center"
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (!isDropdownOpen) scrollSectionIntoView(specialistSectionRef);
+                    if (!isDropdownOpen) scrollSectionIntoView(specialistSectionRef, 0);
                     setIsDropdownOpen(!isDropdownOpen);
                     setIsClientDropdownOpen(false);
                     setIsDependenciesDropdownOpen(false);
