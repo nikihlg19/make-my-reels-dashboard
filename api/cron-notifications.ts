@@ -38,14 +38,33 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    // Delete notifications older than 7 days
-    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const { error: cleanupError, count: deletedCount } = await supabase
+    // ── Cleanup stale data older than 7 days ──────────────────────────────────
+    const cutoff7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const cutoff30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    // Notifications — delete all older than 7 days
+    const { error: notifCleanupErr, count: notifDeleted } = await supabase
       .from('notifications')
       .delete({ count: 'exact' })
-      .lt('created_at', cutoff);
-    if (cleanupError) console.error('[cron-notifications] cleanup error:', cleanupError.message);
-    else console.log(`[cron-notifications] deleted ${deletedCount ?? 0} notifications older than 7 days`);
+      .lt('created_at', cutoff7d);
+    if (notifCleanupErr) console.error('[cleanup] notifications error:', notifCleanupErr.message);
+    else console.log(`[cleanup] notifications deleted: ${notifDeleted ?? 0}`);
+
+    // WhatsApp message logs — delete outbound older than 30 days
+    const { error: waCleanupErr, count: waDeleted } = await supabase
+      .from('whatsapp_messages')
+      .delete({ count: 'exact' })
+      .lt('created_at', cutoff30d);
+    if (waCleanupErr) console.error('[cleanup] whatsapp_messages error:', waCleanupErr.message);
+    else console.log(`[cleanup] whatsapp_messages deleted: ${waDeleted ?? 0}`);
+
+    // Assignment candidates — delete rows for resolved assignments older than 30 days
+    const { error: candidatesCleanupErr, count: candidatesDeleted } = await supabase
+      .from('assignment_candidates')
+      .delete({ count: 'exact' })
+      .lt('created_at', cutoff30d);
+    if (candidatesCleanupErr) console.error('[cleanup] assignment_candidates error:', candidatesCleanupErr.message);
+    else console.log(`[cleanup] assignment_candidates deleted: ${candidatesDeleted ?? 0}`);
 
     const { data: projects, error: projectsError } = await supabase
       .from('projects')
