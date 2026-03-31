@@ -35,6 +35,7 @@ async function sendWaTemplate(params: {
     },
   };
 
+  console.log('[sendWaTemplate] payload:', JSON.stringify(payload));
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 6000);
   try {
@@ -45,6 +46,7 @@ async function sendWaTemplate(params: {
       signal: controller.signal,
     });
     const data = await res.json();
+    console.log('[sendWaTemplate] interakt status:', res.status, JSON.stringify(data));
     if (!res.ok) return { success: false, error: data?.message || `HTTP ${res.status}` };
     return { success: true, messageId: data?.id || data?.messageId };
   } catch (err: any) {
@@ -334,6 +336,7 @@ async function handleSend(req: VercelRequest, res: VercelResponse) {
       body: JSON.stringify(payload),
     });
     const data = await waRes.json();
+    console.log('[whatsapp/send] interakt status:', waRes.status, JSON.stringify(data));
     if (waRes.ok) {
       status = 'sent';
       waMessageId = data?.id || null;
@@ -342,6 +345,7 @@ async function handleSend(req: VercelRequest, res: VercelResponse) {
     }
   } catch (err: any) {
     errorMessage = err.message;
+    console.error('[whatsapp/send] fetch error:', err.message);
   }
 
   await supabaseAdmin.from('whatsapp_messages').insert({
