@@ -38,6 +38,15 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
+    // Delete notifications older than 7 days
+    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { error: cleanupError, count: deletedCount } = await supabase
+      .from('notifications')
+      .delete({ count: 'exact' })
+      .lt('created_at', cutoff);
+    if (cleanupError) console.error('[cron-notifications] cleanup error:', cleanupError.message);
+    else console.log(`[cron-notifications] deleted ${deletedCount ?? 0} notifications older than 7 days`);
+
     const { data: projects, error: projectsError } = await supabase
       .from('projects')
       .select('*')
