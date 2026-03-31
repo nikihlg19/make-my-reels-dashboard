@@ -116,6 +116,29 @@ export function useAssignments(projectIds?: string[]): UseAssignmentsResult {
       let data: any = {};
       try { data = text ? JSON.parse(text) : {}; } catch { /* empty or non-JSON response */ }
       if (!res.ok) return { success: false, error: data.error || `Server error (${res.status})` };
+      // Optimistically add a wa_sent assignment so the UI updates immediately
+      // without waiting for real-time subscription
+      const tempId = data.assignmentId || `temp_${Date.now()}`;
+      setAssignments(prev => {
+        // Remove any old assignment for this member+project first
+        const filtered = prev.filter(a => !(a.projectId === projectId && a.teamMemberId === teamMemberId));
+        return [{
+          id: tempId,
+          projectId,
+          teamMemberId,
+          roleNeeded,
+          status: 'wa_sent' as AssignmentStatus,
+          whatsappMessageId: null,
+          sentAt: new Date().toISOString(),
+          respondedAt: null,
+          declineReason: null,
+          attemptNumber: 1,
+          assignmentGroupId: null,
+          autoExpireAt: null,
+          createdBy: 'admin',
+          createdAt: new Date().toISOString(),
+        }, ...filtered];
+      });
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err.name === 'AbortError' ? 'Request timed out' : (err.message || 'Network error') };
