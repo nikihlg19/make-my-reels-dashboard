@@ -23,8 +23,7 @@ function mapRow(row: any): DBNotification {
     title: row.title,
     message: row.message,
     urgency: row.urgency || 'medium',
-    // Support both is_read (bool) and read_at (timestamp) columns
-    readAt: row.is_read ? (row.read_at || new Date().toISOString()) : (row.read_at ?? null),
+    readAt: row.is_read ? (row.read_at || '1970-01-01T00:00:00.000Z') : null,
     createdAt: row.created_at,
   };
 }
