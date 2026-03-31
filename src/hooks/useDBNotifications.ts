@@ -10,7 +10,7 @@ export interface DBNotification {
   title: string;
   message: string;
   urgency: 'high' | 'medium' | 'low';
-  readAt: string | null;
+  readAt: string | null; // kept for UI compat — derived from is_read
   createdAt: string;
 }
 
@@ -23,7 +23,8 @@ function mapRow(row: any): DBNotification {
     title: row.title,
     message: row.message,
     urgency: row.urgency || 'medium',
-    readAt: row.read_at ?? null,
+    // Support both is_read (bool) and read_at (timestamp) columns
+    readAt: row.is_read ? (row.read_at || new Date().toISOString()) : (row.read_at ?? null),
     createdAt: row.created_at,
   };
 }
@@ -89,7 +90,10 @@ export function useDBNotifications() {
     if (!supabase) return;
     const now = new Date().toISOString();
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, readAt: now } : n));
-    const { error } = await supabase.from('notifications').update({ read_at: now }).eq('id', id);
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('id', id);
     if (error) console.error('[notifications] markRead failed:', error.message, error.code);
     else console.log('[notifications] markRead ok:', id);
   }, [supabase]);
@@ -100,9 +104,9 @@ export function useDBNotifications() {
     setNotifications(prev => prev.map(n => ({ ...n, readAt: n.readAt ?? now })));
     const { error } = await supabase
       .from('notifications')
-      .update({ read_at: now })
+      .update({ is_read: true })
       .eq('user_id', user.id)
-      .is('read_at', null);
+      .eq('is_read', false);
     if (error) console.error('[notifications] markAllRead failed:', error.message, error.code);
   }, [supabase, user?.id]);
 
