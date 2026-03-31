@@ -220,14 +220,14 @@ export const EditProjectModal: React.FC<{
           <button onClick={onClose} className="p-3 hover:bg-slate-100 rounded-[20px] text-slate-400 hover:text-slate-900 transition-all active:scale-90"><X size={24} /></button>
         </div>
 
-        <form ref={scrollContainerRef} onSubmit={handleSubmit} className={`flex-1 custom-scrollbar p-6 space-y-4 ${anyDropdownOpen ? 'overflow-visible' : 'overflow-y-auto'}`}>
+        <form ref={scrollContainerRef} onSubmit={handleSubmit} className="flex-1 custom-scrollbar p-6 space-y-4 overflow-y-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="col-span-1 md:col-span-2 space-y-1">
               <label className="text-[9px] font-black text-slate-300 uppercase tracking-widest ml-2">Deliverable Title</label>
               <input required className="w-full border-2 border-slate-100 rounded-[20px] p-3 bg-slate-50 focus:border-indigo-500 outline-none font-black text-lg" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
             </div>
 
-            <div ref={clientSectionRef} className="col-span-1 md:col-span-2 space-y-1">
+            <div ref={clientSectionRef} className={`col-span-1 md:col-span-2 space-y-1 ${isClientDropdownOpen ? 'overflow-visible' : ''}`}>
               <label className="text-[9px] font-black text-slate-300 uppercase tracking-widest ml-2 flex items-center gap-1.5"><Briefcase size={12} /> Client Account</label>
               <div className={`relative w-full ${isClientDropdownOpen ? 'z-[100]' : 'z-[30]'}`}>
                 <div
@@ -317,7 +317,7 @@ export const EditProjectModal: React.FC<{
               </div>
             </div>
 
-            <div className="col-span-1 md:col-span-2 space-y-1 relative z-[70]">
+            <div className={`col-span-1 md:col-span-2 space-y-1 relative z-[70] ${isLocationOpen ? 'overflow-visible' : ''}`}>
               <label className="text-[9px] font-black text-slate-300 uppercase tracking-widest ml-2">Location</label>
               <LocationAutocomplete
                 value={formData.location}
@@ -328,7 +328,7 @@ export const EditProjectModal: React.FC<{
               />
             </div>
 
-            <div ref={specialistSectionRef} className="col-span-1 md:col-span-2 space-y-1">
+            <div ref={specialistSectionRef} className={`col-span-1 md:col-span-2 space-y-1 ${isDropdownOpen ? 'overflow-visible' : ''}`}>
               <div className="flex items-center justify-between ml-2 mr-1">
                 <label className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Specialist Deployment</label>
                 <button
@@ -740,7 +740,7 @@ export const EditProjectModal: React.FC<{
               />
             </div>
 
-            <div ref={dependenciesSectionRef} className="col-span-1 md:col-span-2 space-y-1">
+            <div ref={dependenciesSectionRef} className={`col-span-1 md:col-span-2 space-y-1 ${isDependenciesDropdownOpen ? 'overflow-visible' : ''}`}>
               <label className="text-[9px] font-black text-slate-300 uppercase tracking-widest ml-2 flex items-center gap-1.5"><LinkIcon size={12} /> Dependencies (Must be completed first)</label>
               <div className={`relative w-full ${isDependenciesDropdownOpen ? 'z-[100]' : 'z-[10]'}`}>
                 <div
