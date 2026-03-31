@@ -139,8 +139,8 @@ async function sendAssignmentConfirmation(params: {
 // ─── URL helpers ──────────────────────────────────────────────────────────────
 const APP_URL = process.env.VITE_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5173');
 
-function buildRespondUrl(assignmentId: string, action: 'accept' | 'decline', token: string): string {
-  return `${APP_URL}/api/assignment/respond?id=${encodeURIComponent(assignmentId)}&r=${action}&token=${encodeURIComponent(token)}`;
+function buildRespondUrl(_assignmentId: string, action: 'accept' | 'decline', token: string): string {
+  return `${APP_URL}/api/assignment/respond?t=${encodeURIComponent(token)}&r=${action}`;
 }
 
 // ─── Auto-cascade ─────────────────────────────────────────────────────────────
@@ -406,21 +406,18 @@ async function handleCandidates(req: any, res: any) {
 async function handleRespond(req: any, res: any) {
   if (req.method !== 'GET') return sendHtml(res, 405, htmlPage('Error', '🚫', 'Method Not Allowed', 'This link only works when tapped directly.', '#ef4444'));
 
-  const { id, r: action, token } = req.query || {};
-  if (!id || !token || !['accept', 'decline'].includes(action as string)) return sendHtml(res, 400, htmlPage('Invalid Link', '🔗', 'Invalid Link', 'This link is malformed or incomplete.', '#ef4444'));
+  const { t: token, r: action } = req.query || {};
+  // also support legacy ?id=...&token=... links already sent
+  const legacyToken = req.query?.token;
+  const resolvedToken = token || legacyToken;
+  if (!resolvedToken || !['accept', 'decline'].includes(action as string)) return sendHtml(res, 400, htmlPage('Invalid Link', '🔗', 'Invalid Link', 'This link is malformed or incomplete.', '#ef4444'));
 
   const { data: assignment, error: fetchErr } = await supabaseAdmin
     .from('project_assignments')
     .select('id, status, project_id, team_member_id, role_needed, assignment_group_id, auto_expire_at, response_token')
-    .eq('id', id).single();
+    .eq('response_token', resolvedToken).single();
 
-  if (fetchErr || !assignment) return sendHtml(res, 404, htmlPage('Not Found', '🔍', 'Assignment Not Found', 'This assignment does not exist.', '#ef4444'));
-
-  const nodeCrypto = await import('crypto');
-  const tokenStr = String(token);
-  const dbToken = String(assignment.response_token || '');
-  const tokenMatch = dbToken.length > 0 && tokenStr.length === dbToken.length && nodeCrypto.timingSafeEqual(Buffer.from(tokenStr), Buffer.from(dbToken));
-  if (!tokenMatch) return sendHtml(res, 403, htmlPage('Invalid Token', '🔒', 'Invalid Token', 'This link is not valid.', '#ef4444'));
+  if (fetchErr || !assignment) return sendHtml(res, 404, htmlPage('Not Found', '🔍', 'Assignment Not Found', 'This link is invalid or has expired.', '#ef4444'));
 
   if (['accepted', 'declined', 'expired', 'cancelled'].includes(assignment.status)) {
     const msgs: Record<string, any> = { accepted: { emoji: '✅', heading: 'Already Accepted', msg: 'You have already accepted this assignment.', color: '#10b981' }, declined: { emoji: '👋', heading: 'Already Declined', msg: 'You have already declined this assignment.', color: '#6366f1' }, expired: { emoji: '⏰', heading: 'Link Expired', msg: 'This assignment has expired.', color: '#f59e0b' }, cancelled: { emoji: '❌', heading: 'Assignment Cancelled', msg: 'This assignment was cancelled by the admin.', color: '#ef4444' } };
