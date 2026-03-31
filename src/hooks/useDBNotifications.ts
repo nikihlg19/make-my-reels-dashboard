@@ -89,18 +89,21 @@ export function useDBNotifications() {
     if (!supabase) return;
     const now = new Date().toISOString();
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, readAt: now } : n));
-    await supabase.from('notifications').update({ read_at: now }).eq('id', id);
+    const { error } = await supabase.from('notifications').update({ read_at: now }).eq('id', id);
+    if (error) console.error('[notifications] markRead failed:', error.message, error.code);
+    else console.log('[notifications] markRead ok:', id);
   }, [supabase]);
 
   const markAllRead = useCallback(async () => {
     if (!supabase || !user) return;
     const now = new Date().toISOString();
     setNotifications(prev => prev.map(n => ({ ...n, readAt: n.readAt ?? now })));
-    await supabase
+    const { error } = await supabase
       .from('notifications')
       .update({ read_at: now })
       .eq('user_id', user.id)
       .is('read_at', null);
+    if (error) console.error('[notifications] markAllRead failed:', error.message, error.code);
   }, [supabase, user?.id]);
 
   const unreadCount = notifications.filter(n => !n.readAt).length;
