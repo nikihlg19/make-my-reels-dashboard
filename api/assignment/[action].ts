@@ -8,6 +8,17 @@ import { addHours, format, parseISO } from 'date-fns';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import webPush from 'web-push';
 
+// ─── Location parser (mirrors src/utils/location.ts) ─────────────────────────
+function parseLocationAddress(raw: string): string {
+  if (!raw) return 'TBD';
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed?.address || parsed?.mainText || raw;
+  } catch {
+    return raw;
+  }
+}
+
 // ─── Supabase admin ──────────────────────────────────────────────────────────
 const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL!,
@@ -189,7 +200,7 @@ async function triggerAutoCascade(
   const declineUrl = buildRespondUrl(newAssignment.id, 'decline', newAssignment.response_token);
   const shootDate = project.event_date ? format(parseISO(project.event_date), 'd MMM yyyy') : 'TBD';
 
-  const waResult = await sendAssignmentRequest({ phone: member.phone, memberName: member.name, projectTitle: project.title, shootDate, shootTime: project.event_time || 'TBD', location: project.location || 'TBD', role: roleNeeded, assignmentId: newAssignment.id, acceptUrl, declineUrl });
+  const waResult = await sendAssignmentRequest({ phone: member.phone, memberName: member.name, projectTitle: project.title, shootDate, shootTime: project.event_time || 'TBD', location: parseLocationAddress(project.location), role: roleNeeded, assignmentId: newAssignment.id, acceptUrl, declineUrl });
 
   await supabase.from('project_assignments').update({ status: waResult.success ? 'wa_sent' : 'pending', whatsapp_message_id: waResult.messageId || null, sent_at: waResult.success ? new Date().toISOString() : null }).eq('id', newAssignment.id);
 
@@ -317,7 +328,7 @@ async function handleCreate(req: any, res: any) {
   const shootDate = project.event_date ? format(parseISO(project.event_date), 'd MMM yyyy') : 'TBD';
 
   const waResult = await Promise.race([
-    sendAssignmentRequest({ phone: member.phone, memberName: member.name, projectTitle: project.title, shootDate, shootTime: project.event_time || 'TBD', location: project.location || 'TBD', role: roleNeeded, assignmentId: assignment.id, acceptUrl, declineUrl }),
+    sendAssignmentRequest({ phone: member.phone, memberName: member.name, projectTitle: project.title, shootDate, shootTime: project.event_time || 'TBD', location: parseLocationAddress(project.location), role: roleNeeded, assignmentId: assignment.id, acceptUrl, declineUrl }),
     new Promise<{ success: boolean; error?: string }>(resolve => setTimeout(() => resolve({ success: false, error: 'timeout' }), 3000)),
   ]);
 
@@ -469,7 +480,7 @@ async function handleRespond(req: any, res: any) {
   if (action === 'accept' && member?.phone && project) {
     try {
       const shootDate = project.event_date ? format(parseISO(project.event_date), 'd MMM yyyy') : 'TBD';
-      await sendAssignmentConfirmation({ phone: member.phone, memberName, projectTitle: project.title, shootDate, shootTime: project.event_time || 'TBD', location: project.location || 'TBD', role: assignment.role_needed });
+      await sendAssignmentConfirmation({ phone: member.phone, memberName, projectTitle: project.title, shootDate, shootTime: project.event_time || 'TBD', location: parseLocationAddress(project.location), role: assignment.role_needed });
     } catch (err) { console.error('[respond] confirmation WA error:', err); }
   }
 

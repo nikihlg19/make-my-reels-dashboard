@@ -14,6 +14,11 @@ const supabaseAdmin = createClient(
 );
 
 // ─── WhatsApp BSP ─────────────────────────────────────────────────────────────
+function parseLocationAddress(raw: string): string {
+  if (!raw) return 'TBD';
+  try { const p = JSON.parse(raw); return p?.address || p?.mainText || raw; } catch { return raw; }
+}
+
 const BSP_API_URL = 'https://api.interakt.ai/v1/public/message/';
 const BSP_API_KEY = process.env.WHATSAPP_BSP_API_KEY || '';
 
@@ -246,7 +251,7 @@ async function triggerAutoCascade(
     projectTitle: project.title,
     shootDate,
     shootTime: project.event_time || 'TBD',
-    location: project.location || 'TBD',
+    location: parseLocationAddress(project.location),
     role: roleNeeded,
     assignmentId: newAssignment.id,
     acceptUrl,
