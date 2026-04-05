@@ -21,7 +21,8 @@ async function verifyAdmin(req: any): Promise<{ userId: string; email: string } 
     const userId = payload.sub;
     if (!userId) return null;
     const adminIds = (process.env.VITE_ADMIN_USER_IDS || '').split(',').map((s: string) => s.trim()).filter(Boolean);
-    if (adminIds.length > 0 && !adminIds.includes(userId)) return null;
+    if (adminIds.length === 0) { console.error('[verifyAdmin] VITE_ADMIN_USER_IDS not configured — denying all admin access'); return null; }
+    if (!adminIds.includes(userId)) return null;
     return { userId, email: '' };
   } catch (err: any) { console.error('[verifyAdmin] exception:', err?.message); return null; }
 }

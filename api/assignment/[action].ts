@@ -64,7 +64,8 @@ async function verifyAdmin(req: any): Promise<{ userId: string; email: string } 
     const userId = payload.sub;
     if (!userId) return null;
     const adminIds = (process.env.VITE_ADMIN_USER_IDS || '').split(',').map((s: string) => s.trim()).filter(Boolean);
-    if (adminIds.length > 0 && !adminIds.includes(userId)) return null;
+    if (adminIds.length === 0) { console.error('[verifyAdmin] VITE_ADMIN_USER_IDS not configured — denying all admin access'); return null; }
+    if (!adminIds.includes(userId)) return null;
     return { userId, email: '' };
   } catch (err: any) { console.error('[verifyAdmin] exception:', err?.message); return null; }
 }
@@ -484,7 +485,18 @@ async function handleRespond(req: any, res: any) {
   }
 
   const newStatus = action === 'accept' ? 'accepted' : 'declined';
-  await supabaseAdmin.from('project_assignments').update({ status: newStatus, responded_at: new Date().toISOString() }).eq('id', assignment.id);
+  // Atomic update — only succeeds if still in a respondable state (prevents double-submit race condition)
+  const { data: updated } = await supabaseAdmin
+    .from('project_assignments')
+    .update({ status: newStatus, responded_at: new Date().toISOString() })
+    .eq('id', assignment.id)
+    .in('status', ['pending', 'wa_sent'])
+    .select('id')
+    .single();
+  if (!updated) {
+    // Another request already handled this assignment concurrently
+    return sendHtml(res, 200, htmlPage('Already Handled', '✅', 'Already Responded', 'This assignment has already been responded to. No further action needed.', '#6366f1'));
+  }
 
   const [{ data: project }, { data: member }] = await Promise.all([
     supabaseAdmin.from('projects').select('title, location, event_date, event_time').eq('id', assignment.project_id).single(),

@@ -9,7 +9,7 @@ const FIREBASE_SERVER_KEY = 'YOUR_FIREBASE_SERVER_KEY_HERE';
 
 // Set this to the same value as CRON_SECRET in your .env
 // This prevents unauthorized POST requests to your script URL
-const SHARED_SECRET = '7664877801b745b7b9dedd492f074b462b32fcd0e83119ac1c055cf474db52fa';
+const SHARED_SECRET = 'YOUR_CRON_SECRET_HERE'; // Replace with your CRON_SECRET value from Vercel env vars
 
 // ==========================================
 // 2. WEB APP ENDPOINTS

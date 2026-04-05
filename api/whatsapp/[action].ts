@@ -99,13 +99,12 @@ async function sendAssignmentConfirmation(params: {
 function verifyWebhookSignature(rawBody: string, signatureHeader: string): boolean {
   const secret = process.env.WHATSAPP_WEBHOOK_SECRET;
   if (!secret) {
-    // No secret configured — allow all webhooks (log warning only)
-    console.warn('[whatsapp] WHATSAPP_WEBHOOK_SECRET not set — accepting webhook without signature check');
-    return true;
+    console.error('[whatsapp] WHATSAPP_WEBHOOK_SECRET not configured — rejecting webhook');
+    return false;
   }
   if (!signatureHeader) {
-    console.warn('[whatsapp] No x-hub-signature-256 header present — accepting (no secret configured)');
-    return true;
+    console.warn('[whatsapp] No x-hub-signature-256 header — rejecting unsigned webhook');
+    return false;
   }
   try {
     const expected = `sha256=${crypto.createHmac('sha256', secret).update(rawBody).digest('hex')}`;
