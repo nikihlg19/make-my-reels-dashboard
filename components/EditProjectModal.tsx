@@ -92,7 +92,7 @@ export const EditProjectModal: React.FC<{
     };
 
     calculateDistances();
-  }, [debouncedLocation, team]);
+  }, [debouncedLocation, team, getDistance]);
 
   const scrollContainerRef = useRef<HTMLFormElement>(null);
   const clientSectionRef = useRef<HTMLDivElement>(null);
@@ -174,8 +174,9 @@ export const EditProjectModal: React.FC<{
   };
 
   const addTag = () => {
-    if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
-      setFormData(prev => ({ ...prev, tags: [...prev.tags, newTag.trim()] }));
+    const sanitized = newTag.trim().slice(0, 40);
+    if (sanitized && !formData.tags.includes(sanitized)) {
+      setFormData(prev => ({ ...prev, tags: [...prev.tags, sanitized] }));
       setNewTag('');
     }
   };
@@ -185,11 +186,14 @@ export const EditProjectModal: React.FC<{
   };
 
   const addInstaLink = () => {
-    if (!newInstaLink.trim()) return;
-    const tag = newInstaTag.trim() || 'Deliverable';
+    const url = newInstaLink.trim();
+    if (!url) return;
+    // Only allow http/https URLs
+    if (!/^https?:\/\//i.test(url)) return;
+    const tag = newInstaTag.trim().slice(0, 40) || 'Deliverable';
     setFormData(prev => ({
       ...prev,
-      instaLinks: [...(prev.instaLinks || []), { url: newInstaLink.trim(), tag }]
+      instaLinks: [...(prev.instaLinks || []), { url, tag }]
     }));
     setNewInstaLink('');
     setNewInstaTag('');

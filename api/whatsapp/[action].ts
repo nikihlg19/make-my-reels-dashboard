@@ -313,6 +313,18 @@ async function handleSend(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'phone, templateName, and messageType are required' });
   }
 
+  // Validate phone — must be a 10-digit Indian mobile number
+  const cleanPhone = String(phone).replace(/^\+?91/, '').replace(/\D/g, '');
+  if (cleanPhone.length !== 10) {
+    return res.status(400).json({ error: 'Invalid phone number — must be a 10-digit Indian mobile number' });
+  }
+
+  // Whitelist allowed templates to prevent arbitrary template injection
+  const ALLOWED_TEMPLATES = ['assignment_request_v2', 'assignment_confirmed', 'assignment_cancelled', 'event_confirmation'];
+  if (!ALLOWED_TEMPLATES.includes(templateName)) {
+    return res.status(400).json({ error: `Template '${templateName}' is not allowed` });
+  }
+
   if (!BSP_API_KEY) {
     return res.status(503).json({ error: 'WhatsApp BSP not configured' });
   }

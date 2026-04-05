@@ -48,20 +48,21 @@ export const useApprovalQueue = ({
 }: UseApprovalQueueArgs): UseApprovalQueueReturn => {
 
   // ── Load approvals from Supabase on mount ────────────────
-  useEffect(() => {
-    const loadApprovals = async () => {
-      const { data, error } = await supabase
-        .from('pending_approvals')
-        .select('*')
-        .eq('status', 'pending')
-        .order('requested_at', { ascending: false });
+  const loadApprovals = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('pending_approvals')
+      .select('*')
+      .eq('status', 'pending')
+      .order('requested_at', { ascending: false });
 
-      if (!error && data) {
-        const approvals = data.map(rowToApproval);
-        setPendingApprovals(approvals);
-        pendingApprovalsRef.current = approvals;
-      }
-    };
+    if (!error && data) {
+      const approvals = data.map(rowToApproval);
+      setPendingApprovals(approvals);
+      pendingApprovalsRef.current = approvals;
+    }
+  }, [supabase, setPendingApprovals, pendingApprovalsRef]);
+
+  useEffect(() => {
     loadApprovals();
 
     // Real-time subscription for approval changes
@@ -75,7 +76,7 @@ export const useApprovalQueue = ({
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [setPendingApprovals, pendingApprovalsRef]);
+  }, [loadApprovals, supabase]);
 
   const queueForApproval = useCallback(async (approval: Omit<PendingApproval, 'id' | 'requestedAt' | 'status' | 'requestedBy' | 'requestedByEmail'>) => {
     const newApproval: PendingApproval = {

@@ -1,5 +1,24 @@
 
-import React, { useState, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
+import React, { useState, useMemo, useEffect, useRef, lazy, Suspense, Component, ErrorInfo } from 'react';
+
+// ─── Error Boundary ───────────────────────────────────────────────────────────
+class TabErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: any) { super(props); this.state = { hasError: false }; }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error: Error, info: ErrorInfo) { console.error('[TabErrorBoundary]', error, info.componentStack); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-400">
+          <span className="text-4xl">⚠️</span>
+          <p className="font-bold text-slate-600">Something went wrong loading this tab.</p>
+          <button onClick={() => this.setState({ hasError: false })} className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold">Retry</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import { X, RefreshCw, Zap, UploadCloud } from 'lucide-react';
 import { Project, TeamMember, Priority, ProjectStatus, Client, PendingApproval } from './types';
 import { INITIAL_PROJECTS, INITIAL_TEAM, INITIAL_CLIENTS } from './constants';
@@ -473,6 +492,7 @@ const App: React.FC = () => {
           />
 
       <main className="flex-1 relative overflow-hidden bg-[#F4F5F7]">
+        <TabErrorBoundary>
         <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="animate-spin w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full" /></div>}>
           {activeTab === 'Board' && <Board projects={filteredProjects} team={activeTeam} clients={activeClients} isAdmin={isAdmin} pendingProjectDeletes={pendingProjectDeletes} onCancelApproval={onCancelApproval} onProjectUpdate={onProjectUpdate} onProjectDelete={onProjectDelete} onEditProject={setEditingProject} onCreateProjectWithStatus={(status: ProjectStatus) => { setInitialProjectStatus(status); setIsNewProjectModalOpen(true); }} isFinancialsUnlocked={isFinancialsUnlocked} onRequestUnlock={handleUnlockSuccess} onPreviewMember={setPreviewMember} onClientClick={(clientId: string) => { const client = activeClients.find(c => c.id === clientId); if (client) { setPreviewClient(client); } }} isMobileStacked={isMobileStacked} onSmartAssign={setSmartAssignProjectId} />}
           {activeTab === 'Calendar' && <Calendar projects={activeProjects} onCreateProject={() => setIsNewProjectModalOpen(true)} onEditProject={(id: string) => setEditingProject(projects.find(p => p.id === id) || null)} />}
@@ -481,6 +501,7 @@ const App: React.FC = () => {
           {activeTab === 'Analytics' && <Analytics team={activeTeam} projects={filteredProjects} clients={activeClients} dateFilter={dateFilter} setDateFilter={setDateFilter} onPreviewMember={setPreviewMember} onEditProject={setEditingProject} />}
           {activeTab === 'Script' && <GASScript />}
         </Suspense>
+        </TabErrorBoundary>
       </main>
 
       {showPaymentQR && <PaymentQRModal onClose={() => setShowPaymentQR(false)} />}
