@@ -39,13 +39,14 @@ export function useDBNotifications() {
   // Auto-register this user into notification_preferences so the API can find them
   useEffect(() => {
     if (!supabase || !user) return;
-    supabase
-      .from('notification_preferences')
-      .upsert({ user_id: user.id }, { onConflict: 'user_id', ignoreDuplicates: true })
-      .then(({ error }) => {
-        if (error) console.warn('[notifications] failed to register user pref:', error.message);
-        else console.log('[notifications] registered user_id:', user.id);
-      });
+    Promise.resolve(
+      supabase
+        .from('notification_preferences')
+        .upsert({ user_id: user.id }, { onConflict: 'user_id', ignoreDuplicates: true })
+    ).then(({ error }) => {
+      if (error) console.warn('[notifications] failed to register user pref:', error.message);
+      else console.log('[notifications] registered user_id:', user.id);
+    }).catch((err: any) => console.error('[notifications] unexpected upsert error:', err?.message));
   }, [user?.id, !!supabase]);
 
   const fetchNotifications = useCallback(async () => {

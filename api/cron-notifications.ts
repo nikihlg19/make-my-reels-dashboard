@@ -81,7 +81,8 @@ export default async function handler(req: any, res: any) {
 
     const { data: subscriptions, error: subError } = await supabase
       .from('push_subscriptions')
-      .select('*');
+      .select('*')
+      .limit(500);
 
     if (subError) throw subError;
 

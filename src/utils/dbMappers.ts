@@ -74,7 +74,7 @@ export function rowToProject(r: Record<string, any>): Project {
     eventTime: excelTimeToString(r.event_time),
     dueDate: r.due_date || '',
     submissionDeadline: r.submission_deadline || undefined,
-    status: r.status || 'Lead',
+    status: r.status || 'To Do',
     progress: r.progress ?? 0,
     budget: r.budget ?? 0,
     expenses: r.expenses ?? 0,

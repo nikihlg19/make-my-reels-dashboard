@@ -204,7 +204,15 @@ async function triggerAutoCascade(
   const member = (next as any).team_members;
   if (!member?.phone) return { cascaded: false };
 
-  await supabase.from('assignment_candidates').update({ was_attempted: true }).eq('id', next.id);
+  // Atomic claim — only proceed if we're the first to set was_attempted (prevents double-send race)
+  const { data: claimed } = await supabase
+    .from('assignment_candidates')
+    .update({ was_attempted: true })
+    .eq('id', next.id)
+    .eq('was_attempted', false)
+    .select('id')
+    .single();
+  if (!claimed) return { cascaded: false };
 
   const { data: project } = await supabase.from('projects').select('title, location, event_date, event_time').eq('id', projectId).single();
   if (!project) return { cascaded: false };
@@ -353,7 +361,7 @@ async function handleCreate(req: any, res: any) {
 
   const waResult = await Promise.race([
     sendAssignmentRequest({ phone: member.phone, memberName: member.name, projectTitle: project.title, shootDate, shootTime: project.event_time || 'TBD', location: parseLocationAddress(project.location), role: roleNeeded, assignmentId: assignment.id, acceptUrl, declineUrl }),
-    new Promise<{ success: boolean; error?: string }>(resolve => setTimeout(() => resolve({ success: false, error: 'timeout' }), 3000)),
+    new Promise<{ success: boolean; error?: string }>(resolve => setTimeout(() => resolve({ success: false, error: 'timeout' }), 7000)),
   ]);
 
   console.log('[assignment/create] WA result:', JSON.stringify(waResult));
@@ -441,9 +449,10 @@ async function handleCandidates(req: any, res: any) {
     await Promise.allSettled(membersWithLocation.map(async (m: any) => {
       try {
         const res = await fetch(`https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(m.location)}&destinations=${encodeURIComponent(project.location)}&key=${apiKey}`);
-        const data = await res.text().then(t => { console.log('[WA] interakt status:', res.status, t.slice(0,300)); try { return JSON.parse(t); } catch { throw new Error(`HTTP ${res.status}: ${t.slice(0,200)}`); } });
+        if (!res.ok) { console.warn('[distance] Maps API error:', res.status); return; }
+        const data = await res.json();
         if (data.status === 'OK' && data.rows?.[0]?.elements?.[0]?.status === 'OK') distanceMap[m.id] = data.rows[0].elements[0].distance.value / 1000;
-      } catch { /* ignore */ }
+      } catch (e: any) { console.warn('[distance] calculation failed:', e.message); }
     }));
   }
 
