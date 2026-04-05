@@ -471,13 +471,20 @@ export const EditProjectModal: React.FC<{
                               {sendingRequest[memberId] === ('sent' as any) ? 'Sent ✓' : isSending ? 'Sending...' : assignment ? 'Resend' : 'Send Request'}
                             </button>
                           ) : (
-                            assignment && ['pending', 'wa_sent'].includes(assignment.status) && (
+                            assignment && ['pending', 'wa_sent', 'accepted'].includes(assignment.status) && (
                               <button
                                 type="button"
-                                onClick={() => cancelAssignment(assignment.id)}
-                                className="text-[9px] font-black uppercase tracking-wider text-slate-400 hover:text-rose-500 transition-colors px-2 py-1"
+                                onClick={() => {
+                                  if (assignment.status === 'accepted') {
+                                    if (!window.confirm('This member already accepted. They will be notified via WhatsApp that they are no longer needed. Continue?')) return;
+                                  }
+                                  cancelAssignment(assignment.id);
+                                }}
+                                className={`text-[9px] font-black uppercase tracking-wider transition-colors px-2 py-1 ${
+                                  assignment.status === 'accepted' ? 'text-rose-500 hover:text-rose-700' : 'text-slate-400 hover:text-rose-500'
+                                }`}
                               >
-                                Cancel
+                                {assignment.status === 'accepted' ? 'Unassign' : 'Cancel'}
                               </button>
                             )
                           )}

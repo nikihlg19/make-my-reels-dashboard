@@ -136,6 +136,29 @@ async function sendAssignmentConfirmation(params: {
   } finally { clearTimeout(timer); }
 }
 
+async function sendAssignmentCancellation(params: {
+  phone: string; memberName: string; projectTitle: string; shootDate: string; role: string;
+}): Promise<{ success: boolean; error?: string }> {
+  if (!BSP_API_KEY) return { success: false, error: 'WhatsApp BSP not configured' };
+  const payload = {
+    countryCode: '+91',
+    phoneNumber: params.phone.replace(/^\+?91/, ''),
+    callbackData: 'cancellation',
+    type: 'Template',
+    template: { name: 'assignment_cancelled', languageCode: 'en', bodyValues: [params.memberName, params.projectTitle, params.shootDate, params.role] },
+  };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 6000);
+  try {
+    const res = await fetch(BSP_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Basic ${BSP_API_KEY}` }, body: JSON.stringify(payload), signal: controller.signal });
+    const data = await res.text().then(t => { console.log('[WA] cancellation interakt status:', res.status, t.slice(0,300)); try { return JSON.parse(t); } catch { throw new Error(`HTTP ${res.status}: ${t.slice(0,200)}`); } });
+    if (!res.ok) return { success: false, error: data?.message || `HTTP ${res.status}` };
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.name === 'AbortError' ? 'timeout' : err.message };
+  } finally { clearTimeout(timer); }
+}
+
 // ─── URL helpers ──────────────────────────────────────────────────────────────
 const APP_URL = process.env.VITE_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5173');
 
@@ -348,13 +371,43 @@ async function handleCancel(req: any, res: any) {
   const { assignmentId } = req.body || {};
   if (!assignmentId) return res.status(400).json({ error: 'assignmentId is required' });
 
-  const { data: assignment, error: fetchErr } = await supabaseAdmin.from('project_assignments').select('id, status').eq('id', assignmentId).single();
+  const { data: assignment, error: fetchErr } = await supabaseAdmin
+    .from('project_assignments')
+    .select('id, status, team_member_id, project_id, role_needed')
+    .eq('id', assignmentId).single();
   if (fetchErr || !assignment) return res.status(404).json({ error: 'Assignment not found' });
-  if (!['pending', 'wa_sent'].includes(assignment.status)) return res.status(400).json({ error: `Cannot cancel assignment in status: ${assignment.status}` });
+  if (!['pending', 'wa_sent', 'accepted'].includes(assignment.status)) return res.status(400).json({ error: `Cannot cancel assignment in status: ${assignment.status}` });
 
+  const previousStatus = assignment.status;
   const { error: updateErr } = await supabaseAdmin.from('project_assignments').update({ status: 'cancelled' }).eq('id', assignmentId);
   if (updateErr) return res.status(500).json({ error: 'Failed to cancel assignment' });
-  return res.status(200).json({ success: true });
+
+  // Send WhatsApp cancellation notification (only if WA was already sent or accepted)
+  let whatsappSent = false;
+  if (['wa_sent', 'accepted'].includes(previousStatus)) {
+    try {
+      const [{ data: member }, { data: project }] = await Promise.all([
+        supabaseAdmin.from('team_members').select('name, phone').eq('id', assignment.team_member_id).single(),
+        supabaseAdmin.from('projects').select('title, event_date').eq('id', assignment.project_id).single(),
+      ]);
+      if (member?.phone && project) {
+        const shootDate = project.event_date ? format(parseISO(project.event_date), 'd MMM yyyy') : 'TBD';
+        const waResult = await sendAssignmentCancellation({
+          phone: member.phone,
+          memberName: member.name,
+          projectTitle: project.title,
+          shootDate,
+          role: assignment.role_needed || 'Team Member',
+        });
+        whatsappSent = waResult.success;
+        if (!waResult.success) console.warn('[cancel] WA notification failed:', waResult.error);
+      }
+    } catch (err: any) {
+      console.error('[cancel] WA notification error:', err.message);
+    }
+  }
+
+  return res.status(200).json({ success: true, whatsappSent, previousStatus });
 }
 
 async function handleCandidates(req: any, res: any) {
@@ -420,7 +473,7 @@ async function handleRespond(req: any, res: any) {
   if (fetchErr || !assignment) return sendHtml(res, 404, htmlPage('Not Found', '🔍', 'Assignment Not Found', 'This link is invalid or has expired.', '#ef4444'));
 
   if (['accepted', 'declined', 'expired', 'cancelled'].includes(assignment.status)) {
-    const msgs: Record<string, any> = { accepted: { emoji: '✅', heading: 'Already Accepted', msg: 'You have already accepted this assignment.', color: '#10b981' }, declined: { emoji: '👋', heading: 'Already Declined', msg: 'You have already declined this assignment.', color: '#6366f1' }, expired: { emoji: '⏰', heading: 'Link Expired', msg: 'This assignment has expired.', color: '#f59e0b' }, cancelled: { emoji: '❌', heading: 'Assignment Cancelled', msg: 'This assignment was cancelled by the admin.', color: '#ef4444' } };
+    const msgs: Record<string, any> = { accepted: { emoji: '✅', heading: 'Already Accepted', msg: 'You have already accepted this assignment.', color: '#10b981' }, declined: { emoji: '👋', heading: 'Already Declined', msg: 'You have already declined this assignment.', color: '#6366f1' }, expired: { emoji: '⏰', heading: 'Link Expired', msg: 'This assignment has expired.', color: '#f59e0b' }, cancelled: { emoji: '📋', heading: 'No Longer Needed', msg: 'Thanks for your interest! The admin has updated the team for this event. No action required on your end.', color: '#64748b' } };
     const s = msgs[assignment.status];
     return sendHtml(res, 200, htmlPage(s.heading, s.emoji, s.heading, s.msg, s.color));
   }
