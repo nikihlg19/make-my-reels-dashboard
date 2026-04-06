@@ -15,10 +15,24 @@ const supabaseAdmin = createClient(
 const BSP_API_URL = 'https://api.interakt.ai/v1/public/message/';
 const BSP_API_KEY = process.env.WHATSAPP_BSP_API_KEY || '';
 
-function buildRespondUrl(assignmentId: string, action: 'accept' | 'decline', token: string): string {
+function buildRespondUrl(_assignmentId: string, action: 'accept' | 'decline', token: string): string {
   const APP_URL = process.env.VITE_APP_URL
     || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5173');
-  return `${APP_URL}/api/assignment/respond?id=${encodeURIComponent(assignmentId)}&r=${action}&token=${encodeURIComponent(token)}`;
+  return `${APP_URL}/api/assignment/respond?t=${encodeURIComponent(token)}&r=${action}`;
+}
+
+// ─── Idempotency helper ───────────────────────────────────────────────────────
+async function acquireCronLock(cronName: string): Promise<boolean> {
+  const today = new Date().toISOString().split('T')[0];
+  const { error } = await supabaseAdmin
+    .from('cron_runs')
+    .insert({ cron_name: cronName, run_date: today });
+  // error code 23505 = unique_violation → already ran today
+  if (error) {
+    if (error.code === '23505') return false;
+    console.warn(`[${cronName}] cron_runs insert error:`, error.message);
+  }
+  return true; // lock acquired
 }
 
 async function sendAssignmentRequest(params: {
@@ -191,6 +205,12 @@ export default async function handler(req: any, res: any) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret || req.headers.authorization !== `Bearer ${cronSecret}`) {
     return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const locked = await acquireCronLock('cron-assignments');
+  if (!locked) {
+    console.log('[cron-assignments] already ran today — skipping');
+    return res.status(200).json({ skipped: true, reason: 'already_ran_today' });
   }
 
   const { data: expired, error } = await supabaseAdmin
