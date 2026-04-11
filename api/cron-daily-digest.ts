@@ -112,7 +112,7 @@ export default async function handler(req: any, res: any) {
 
   const { data: prefs } = await supabaseAdmin
     .from('notification_preferences')
-    .select('user_id');
+    .select('user_id, telegram_chat_id');
   const adminUserIds = (prefs || []).map((p: any) => p.user_id);
 
   const todayShootCount = (todaysShoots || []).length;
@@ -170,6 +170,37 @@ export default async function handler(req: any, res: any) {
       });
     } catch (e) {
       console.warn('[cron-daily-digest] WhatsApp send failed (non-fatal):', e);
+    }
+  }
+
+  // ── Telegram digest (admin users only) ───────────────────────────────────────
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (botToken) {
+    // Only send to users who are in adminUserIds AND have telegram linked
+    const telegramAdmins = (prefs || []).filter(
+      (p: any) => p.telegram_chat_id && adminUserIds.includes(p.user_id)
+    );
+    if (telegramAdmins.length > 0) {
+      const digestLines = [
+        `<b>Good morning! Daily briefing for ${format(now, 'd MMM')}</b>`,
+        '',
+        ...(summaryLines.length > 0 ? summaryLines : ['All clear — no urgent actions today.']),
+        '',
+        `Revenue this month: ${(revenueThisMonth / 1000).toFixed(1)}k`,
+      ];
+      const telegramText = digestLines.join('\n');
+
+      for (const u of telegramAdmins) {
+        try {
+          await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: u.telegram_chat_id, text: telegramText, parse_mode: 'HTML' }),
+          });
+        } catch (e) {
+          console.warn('[cron-daily-digest] Telegram send failed:', (e as any)?.message);
+        }
+      }
     }
   }
 

@@ -25,6 +25,28 @@ async function acquireCronLock(cronName: string): Promise<boolean> {
   return true;
 }
 
+// ─── Telegram helper ──────────────────────────────────────────────────────────
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+async function sendTelegram(chatId: string, text: string): Promise<boolean> {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token || !chatId) return false;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
+    });
+    if (!res.ok) console.warn('[telegram] send failed:', res.status);
+    return res.ok;
+  } catch (err: any) {
+    console.warn('[telegram] send error:', err.message);
+    return false;
+  }
+}
+
 function isInQuietHours(quietStart?: string, quietEnd?: string): boolean {
   if (!quietStart || !quietEnd) return false;
   const [startH, startM] = quietStart.split(':').map(Number);
@@ -227,11 +249,14 @@ async function createAndSendNotification(params: {
   const pushEnabled = typePref?.push !== false;
   const emailEnabled = typePref?.email === true;
   const inAppEnabled = typePref?.in_app !== false;
+  const telegramEnabled = typePref?.telegram === true;
+  const telegramChatId = params.prefs?.telegram_chat_id;
 
   const channelsSent: string[] = [];
   if (inAppEnabled) channelsSent.push('in_app');
   if (pushEnabled) channelsSent.push('push');
   if (emailEnabled) channelsSent.push('email');
+  if (telegramEnabled && telegramChatId) channelsSent.push('telegram');
 
   if (channelsSent.length === 0) return;
 
@@ -313,5 +338,11 @@ async function createAndSendNotification(params: {
     } catch (emailErr) {
       console.error('Failed to send email notification:', emailErr);
     }
+  }
+
+  // ── Telegram ──────────────────────────────────────────────────────────────
+  if (telegramEnabled && telegramChatId) {
+    const telegramText = `<b>${escapeHtml(params.title)}</b>\n${escapeHtml(params.message)}`;
+    await sendTelegram(telegramChatId, telegramText);
   }
 }

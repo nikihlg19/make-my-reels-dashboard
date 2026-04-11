@@ -8,6 +8,7 @@ import { toast } from 'sonner';
  */
 export function useNotificationPreferences(userId?: string) {
   const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
+  const [telegramChatId, setTelegramChatId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -30,6 +31,8 @@ export function useNotificationPreferences(userId?: string) {
       }
       
       if (data) {
+        setTelegramChatId(data.telegram_chat_id || null);
+
         // Map DB snake_case to schema camelCase where necessary
         const mapped = {
           userId: data.user_id,
@@ -100,9 +103,26 @@ export function useNotificationPreferences(userId?: string) {
     return true;
   };
 
+  const disconnectTelegram = async () => {
+    if (!supabase || !userId) return false;
+    const { error } = await supabase
+      .from('notification_preferences')
+      .update({ telegram_chat_id: null })
+      .eq('user_id', userId);
+    if (error) {
+      toast.error('Failed to disconnect Telegram');
+      return false;
+    }
+    setTelegramChatId(null);
+    toast.success('Telegram disconnected');
+    return true;
+  };
+
   return {
     preferences,
     isLoading,
-    updatePreferences
+    updatePreferences,
+    telegramChatId,
+    disconnectTelegram,
   };
 }
