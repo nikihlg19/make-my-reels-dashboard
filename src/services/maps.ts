@@ -13,8 +13,10 @@ export interface DistanceResult {
 
 import { parseLocation } from '../utils/location';
 
+import { useCallback } from 'react';
+
 export const useDistanceCalculator = () => {
-  const getDistance = async (origin: string, destination: string): Promise<DistanceResult | null> => {
+  const getDistance = useCallback(async (origin: string, destination: string): Promise<DistanceResult | null> => {
     try {
       if (!origin || !destination) return null;
 
@@ -76,7 +78,7 @@ export const useDistanceCalculator = () => {
       console.error("Error fetching distance via Maps JS SDK:", error);
       return null;
     }
-  };
+  }, []);
 
   return { getDistance };
 };
