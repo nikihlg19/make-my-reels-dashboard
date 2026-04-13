@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Bell, Clock, Calendar as CalendarIcon, CheckCircle, Check,
-  AlertTriangle, UserCheck, XCircle, RefreshCw, Zap, UserX,
+  AlertTriangle, UserCheck, XCircle, RefreshCw, Zap, UserX, Settings,
 } from 'lucide-react';
 import { Project, PendingApproval } from '../types';
+import NotificationSettings from '../src/components/NotificationSettings';
 import { format, differenceInHours, differenceInMinutes, formatDistanceToNow } from 'date-fns';
 import { useDBNotifications, DBNotification } from '../src/hooks/useDBNotifications';
 
@@ -93,6 +94,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [localNotifs, setLocalNotifs] = useState<LocalNotification[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | 'unread' | 'approvals'>('all');
+  const [showSettings, setShowSettings] = useState(false);
   const [testPushStatus, setTestPushStatus] = useState<'idle' | 'sending' | 'sent' | 'blocked'>('idle');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -252,6 +254,13 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
                 >
                   {testPushStatus === 'sent' ? <Check size={16} className="text-emerald-500" /> : testPushStatus === 'blocked' ? <AlertTriangle size={16} className="text-rose-500" /> : <Bell size={16} />}
                 </button>
+                <button
+                  onClick={() => setShowSettings(s => !s)}
+                  title="Notification Settings"
+                  className={`p-2 rounded-xl transition-all ${showSettings ? 'text-indigo-600 bg-indigo-50' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'}`}
+                >
+                  <Settings size={16} />
+                </button>
                 {allUnread > 0 && (
                   <button onClick={handleMarkAllRead} title="Mark all as read" className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all">
                     <CheckCircle size={16} />
@@ -260,22 +269,29 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-2xl">
-              {(['all', 'unread'] as const).map(tab => (
-                <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all duration-300 ${activeTab === tab ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                  {tab}
-                </button>
-              ))}
-              {isAdmin && (
-                <button onClick={() => setActiveTab('approvals')} className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all duration-300 relative ${activeTab === 'approvals' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                  Approvals
-                  {pendingCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-white text-[8px] font-black rounded-full flex items-center justify-center">{pendingCount}</span>}
-                </button>
-              )}
-            </div>
+            {!showSettings && (
+              <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-2xl">
+                {(['all', 'unread'] as const).map(tab => (
+                  <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all duration-300 ${activeTab === tab ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                    {tab}
+                  </button>
+                ))}
+                {isAdmin && (
+                  <button onClick={() => setActiveTab('approvals')} className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all duration-300 relative ${activeTab === 'approvals' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                    Approvals
+                    {pendingCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-white text-[8px] font-black rounded-full flex items-center justify-center">{pendingCount}</span>}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Body */}
+          {/* Settings Panel or Body */}
+          {showSettings ? (
+            <div className="max-h-[440px] overflow-y-auto custom-scrollbar">
+              <NotificationSettings />
+            </div>
+          ) : (
           <div className="max-h-[440px] overflow-y-auto custom-scrollbar p-2 bg-slate-50/50">
 
             {/* Approvals tab */}
@@ -427,6 +443,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
               })()
             )}
           </div>
+          )}
         </div>
       )}
     </div>
