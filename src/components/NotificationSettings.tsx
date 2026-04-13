@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { Settings, Smartphone, Mail, Bell, Send, ExternalLink, X, Loader2 } from 'lucide-react';
-import { useUser, useAuth } from '@clerk/react';
+import { Settings, Smartphone, Mail, Bell } from 'lucide-react';
+import { useUser } from '@clerk/react';
 import { useNotificationPreferences } from '../hooks/useNotificationPreferences';
 import { usePushSubscription } from '../hooks/usePushSubscription';
 import { ChannelPreference, NotificationPreferences } from '../schemas';
@@ -17,33 +17,10 @@ const PREFERENCE_CATEGORIES = [
 export default function NotificationSettings() {
   const { user } = useUser();
   const userId = user?.id;
-  const { getToken } = useAuth();
-  const { preferences, isLoading, updatePreferences, telegramChatId, disconnectTelegram } = useNotificationPreferences(userId);
+  const { preferences, isLoading, updatePreferences } = useNotificationPreferences(userId);
   const { isSupported, isSubscribed, subscribe } = usePushSubscription();
   const [isSaving, setIsSaving] = useState(false);
-  const [isConnectingTelegram, setIsConnectingTelegram] = useState(false);
   const quietHoursTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleConnectTelegram = useCallback(async () => {
-    setIsConnectingTelegram(true);
-    try {
-      const jwt = await getToken({ template: 'supabase' });
-      const res = await fetch('/api/telegram/create-link', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${jwt}` },
-      });
-      if (!res.ok) throw new Error('Failed to create link');
-      const { token } = await res.json();
-      const botUsername = import.meta.env.VITE_TELEGRAM_BOT_USERNAME;
-      if (!botUsername) { alert('Telegram bot not configured'); return; }
-      window.open(`https://t.me/${botUsername}?start=${token}`, '_blank');
-    } catch (err) {
-      console.error('[telegram] connect error:', err);
-      alert('Failed to generate Telegram link. Please try again.');
-    } finally {
-      setIsConnectingTelegram(false);
-    }
-  }, [getToken]);
 
   const debouncedUpdateQuietHours = useCallback((field: string, value: string) => {
     if (quietHoursTimer.current) clearTimeout(quietHoursTimer.current);
@@ -119,11 +96,6 @@ export default function NotificationSettings() {
                   <Mail size={16} className="text-slate-400" /> Email
                 </div>
               </th>
-              <th className="p-4 text-center text-xs font-black text-slate-500 uppercase tracking-widest w-24">
-                <div className="flex flex-col items-center gap-1">
-                  <Send size={16} className="text-slate-400" /> Telegram
-                </div>
-              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -171,17 +143,6 @@ export default function NotificationSettings() {
                     </button>
                   </td>
 
-                  {/* Telegram Toggle */}
-                  <td className="p-4 text-center align-middle">
-                    <button
-                      disabled={isSaving || !telegramChatId}
-                      title={!telegramChatId ? 'Connect Telegram first' : undefined}
-                      onClick={() => handleToggle(key as keyof NotificationPreferences, 'telegram')}
-                      className={`w-10 h-6 rounded-full relative transition-colors ${!telegramChatId ? 'bg-slate-100 cursor-not-allowed' : pref.telegram ? 'bg-indigo-500' : 'bg-slate-200'} ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      <span className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${pref.telegram && telegramChatId ? 'translate-x-4' : 'translate-x-0'}`} />
-                    </button>
-                  </td>
                 </tr>
               );
             })}
@@ -189,37 +150,6 @@ export default function NotificationSettings() {
         </table>
       </div>
       
-      {/* Telegram Connection Section */}
-      <div className="p-6 border-t border-slate-100 flex items-center justify-between">
-        <div>
-          <h4 className="font-bold text-sm flex items-center gap-2">
-            <Send size={16} className="text-blue-500" /> Telegram Notifications
-          </h4>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {telegramChatId
-              ? 'Connected — you will receive notifications in Telegram.'
-              : 'Connect your Telegram to receive instant phone notifications.'}
-          </p>
-        </div>
-        {telegramChatId ? (
-          <button
-            onClick={disconnectTelegram}
-            className="px-4 py-2 bg-red-50 text-red-600 text-sm font-bold rounded-lg hover:bg-red-100 transition-colors flex items-center gap-2"
-          >
-            <X size={16} /> Disconnect
-          </button>
-        ) : (
-          <button
-            onClick={handleConnectTelegram}
-            disabled={isConnectingTelegram}
-            className="px-4 py-2 bg-blue-50 text-blue-700 text-sm font-bold rounded-lg hover:bg-blue-100 transition-colors flex items-center gap-2 disabled:opacity-50"
-          >
-            {isConnectingTelegram ? <Loader2 size={16} className="animate-spin" /> : <ExternalLink size={16} />}
-            {isConnectingTelegram ? 'Generating link...' : 'Connect Telegram'}
-          </button>
-        )}
-      </div>
-
       {/* Quiet Hours Section */}
       <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
          <div>
