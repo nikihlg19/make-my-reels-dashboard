@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@clerk/react';
 import { toast } from 'sonner';
 
 /**
@@ -6,6 +7,7 @@ import { toast } from 'sonner';
  * Checks support, requests permission, generates subscription, and sends to backend.
  */
 export function usePushSubscription() {
+  const { getToken } = useAuth();
   const [isSupported, setIsSupported] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [permissionState, setPermissionState] = useState<NotificationPermission>('default');
@@ -97,10 +99,16 @@ export function usePushSubscription() {
         userAgent: navigator.userAgent
       };
 
-      // Send to backend (using internal module call since this isn't a real Next.js server)
-      const { POST } = await import('../api/subscribe-push');
-      const response = await POST(subscriptionData as any);
-      
+      const jwt = await getToken({ template: 'supabase' });
+      const response = await fetch('/api/subscribe-push', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${jwt}`,
+        },
+        body: JSON.stringify(subscriptionData),
+      });
+
       if (!response.ok) {
         throw new Error('Server failed to save subscription');
       }
