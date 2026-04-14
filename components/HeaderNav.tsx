@@ -77,9 +77,10 @@ const HeaderNav: React.FC<HeaderNavProps> = ({
         </nav>
       </div>
 
-      <div className="flex items-center gap-2 md:gap-4 overflow-x-auto scrollbar-hide pb-1 md:pb-0 w-full md:w-auto">
+      <div className="flex items-center gap-2 md:gap-4 w-full md:w-auto min-w-0">
+        {/* Admin tools — scrollable on mobile so they don't push the right-side buttons off screen */}
         {isAdmin && (
-          <>
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1 md:pb-0 min-w-0">
             <div className={`flex items-center gap-2 px-2 md:px-3 py-1.5 rounded-xl border transition-all shadow-sm shrink-0 ${lastSyncError ? 'bg-rose-50 border-rose-100 text-rose-600' : isSaving ? 'bg-amber-100 border-amber-200 text-amber-700' : isSyncing ? 'bg-indigo-50 border-indigo-100 text-indigo-500' : 'bg-emerald-50 border-emerald-100 text-emerald-600'}`}>
               {lastSyncError ? <AlertTriangle size={14} /> : isSaving ? <UploadCloud size={14} className="animate-pulse" /> : isSyncing ? <RefreshCw size={12} className="animate-spin" /> : <CheckCircle size={12} />}
               <span className="text-[9px] font-black uppercase tracking-widest hidden sm:inline">
@@ -94,42 +95,40 @@ const HeaderNav: React.FC<HeaderNavProps> = ({
               <Database size={14} />
               <span className="uppercase tracking-widest hidden xl:inline">Supabase Connected</span>
             </button>
-          </>
-        )}
 
-        {isAdmin && (
-          <button onClick={() => isFinancialsUnlocked ? handleLockState() : handleUnlockSuccess()} className={`flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-lg font-black text-[10px] transition-all shadow-sm shrink-0 ${isFinancialsUnlocked ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-900 text-white hover:bg-black'}`}>
-            {isFinancialsUnlocked ? <EyeOff size={12} /> : <Lock size={12} />}
-            <span className="uppercase tracking-widest hidden lg:inline">{isFinancialsUnlocked ? 'Unlocked Session' : 'Unlock Access'}</span>
-          </button>
-        )}
+            <button onClick={() => isFinancialsUnlocked ? handleLockState() : handleUnlockSuccess()} className={`flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-lg font-black text-[10px] transition-all shadow-sm shrink-0 ${isFinancialsUnlocked ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-900 text-white hover:bg-black'}`}>
+              {isFinancialsUnlocked ? <EyeOff size={12} /> : <Lock size={12} />}
+              <span className="uppercase tracking-widest hidden lg:inline">{isFinancialsUnlocked ? 'Unlocked Session' : 'Unlock Access'}</span>
+            </button>
 
-        {isAdmin && onShowDigest && (
-          <button
-            onClick={onShowDigest}
-            className={`relative flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[10px] transition-all shrink-0 ${digestUrgent ? 'bg-amber-500 text-white shadow-md' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}
-            title="Daily Briefing"
-          >
-            <Sun size={14} />
-            <span className="uppercase tracking-widest hidden lg:inline">Briefing</span>
-            {digestUrgent && (
-              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white" />
+            {onShowDigest && (
+              <button
+                onClick={onShowDigest}
+                className={`relative flex items-center gap-1.5 px-3 py-2 rounded-lg font-black text-[10px] transition-all shrink-0 ${digestUrgent ? 'bg-amber-500 text-white shadow-md' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}
+                title="Daily Briefing"
+              >
+                <Sun size={14} />
+                <span className="uppercase tracking-widest hidden lg:inline">Briefing</span>
+                {digestUrgent && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white" />
+                )}
+              </button>
             )}
-          </button>
+          </div>
         )}
 
-        <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+        {/* User + New Project — always pinned, never clipped */}
+        <div className="flex items-center gap-2 shrink-0 pl-2 border-l border-slate-200">
           <UserButton />
           {user?.firstName && (
             <span className="text-xs font-semibold text-slate-700 hidden lg:inline">
               {user.firstName}
             </span>
           )}
+          <button onClick={() => setIsNewProjectModalOpen(true)} className="bg-[#4F46E5] text-white px-4 md:px-5 py-2 rounded-lg font-black shadow-lg hover:bg-[#3f38c2] transition-all text-[10px] uppercase tracking-widest shrink-0">
+            New Project
+          </button>
         </div>
-
-        <button onClick={() => setIsNewProjectModalOpen(true)} className="bg-[#4F46E5] text-white px-4 md:px-5 py-2 rounded-lg font-black shadow-lg hover:bg-[#3f38c2] transition-all text-[10px] uppercase tracking-widest shrink-0">
-          New Project
-        </button>
       </div>
     </header>
   );
