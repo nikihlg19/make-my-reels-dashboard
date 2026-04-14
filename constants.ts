@@ -11,7 +11,6 @@ export const INITIAL_EVENTS: CalendarEvent[] = [];
 
 // Logistics Configurations
 export const MILEAGE_RATE_PER_KM = Number(import.meta.env.VITE_MILEAGE_RATE_PER_KM) || 10; // Rupees per km
-export const ADMIN_PHONE = import.meta.env.VITE_ADMIN_PHONE || '919603663435';
 
 export const parseTime = (timeVal: any): string | undefined => {
   if (timeVal === null || timeVal === undefined || timeVal === '') return undefined;

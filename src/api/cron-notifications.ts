@@ -35,6 +35,19 @@ function isInQuietHours(quietStart?: string, quietEnd?: string): boolean {
   return currentMin >= startMin && currentMin < endMin;
 }
 
+// ─── Idempotency helper ───────────────────────────────────────────────────────
+async function acquireCronLock(cronName: string): Promise<boolean> {
+  const today = new Date().toISOString().split('T')[0];
+  const { error } = await supabase
+    .from('cron_runs')
+    .insert({ cron_name: cronName, run_date: today });
+  if (error) {
+    if (error.code === '23505') return false; // unique violation = already ran today
+    console.warn(`[${cronName}] cron_runs insert error:`, error.message);
+  }
+  return true;
+}
+
 /**
  * Vercel Cron Endpoint: /api/cron-notifications
  * Runs periodically to check for upcoming shoots, deadlines, and overdue projects.
@@ -49,6 +62,11 @@ export default async function handler(req: any, res: any) {
   const authHeader = req.headers.authorization;
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const locked = await acquireCronLock('cron-notifications');
+  if (!locked) {
+    return res.status(200).json({ skipped: true, reason: 'already_ran_today' });
   }
 
   try {

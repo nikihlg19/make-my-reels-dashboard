@@ -68,7 +68,6 @@ export function rowToProject(r: Record<string, any>): Project {
     tags: r.tags || [],
     clientId: r.client_id || undefined,
     clientIds: r.client_ids || [],
-    client_name: r.client_name || undefined,
     teamMemberIds: r.team_member_ids || [],
     eventDate: r.event_date || '',
     eventTime: excelTimeToString(r.event_time),

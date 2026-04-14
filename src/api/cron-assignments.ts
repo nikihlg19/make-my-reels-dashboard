@@ -14,6 +14,19 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// ─── Idempotency helper ───────────────────────────────────────────────────────
+async function acquireCronLock(cronName: string): Promise<boolean> {
+  const today = new Date().toISOString().split('T')[0];
+  const { error } = await supabaseAdmin
+    .from('cron_runs')
+    .insert({ cron_name: cronName, run_date: today });
+  if (error) {
+    if (error.code === '23505') return false;
+    console.warn(`[${cronName}] cron_runs insert error:`, error.message);
+  }
+  return true;
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -22,6 +35,11 @@ export default async function handler(req: any, res: any) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret || req.headers.authorization !== `Bearer ${cronSecret}`) {
     return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const locked = await acquireCronLock('cron-assignments');
+  if (!locked) {
+    return res.status(200).json({ skipped: true, reason: 'already_ran_today' });
   }
 
   // Find expired assignments

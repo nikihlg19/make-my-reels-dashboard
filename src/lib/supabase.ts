@@ -3,11 +3,12 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Base client (no auth) — used by server-side code and as a fallback.
-export const supabase: SupabaseClient | null =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : null;
+// Base client (no auth) — used by hooks that don't need RLS.
+// Throws at startup if env vars are missing (app can't work without Supabase).
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be set');
+}
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
 /**
  * Create a Supabase client using the native Clerk integration.
@@ -22,10 +23,6 @@ export const supabase: SupabaseClient | null =
 export function createClerkSupabaseClient(
   session: { getToken: () => Promise<string | null> } | null | undefined,
 ): SupabaseClient {
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Supabase credentials are not configured');
-  }
-
   return createClient(supabaseUrl, supabaseAnonKey, {
     async accessToken() {
       return session?.getToken() ?? null;

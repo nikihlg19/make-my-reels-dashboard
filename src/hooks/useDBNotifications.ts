@@ -84,7 +84,7 @@ export function useDBNotifications() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [fetchNotifications]);
+  }, [fetchNotifications, user?.id]);
 
   const markRead = useCallback(async (id: string) => {
     if (!supabase) return;
