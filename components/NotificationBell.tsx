@@ -34,7 +34,7 @@ interface LocalNotification {
 // --- Helper: Send push notification via Service Worker ---
 async function sendPushNotification(title: string, body: string, tag?: string) {
   const options: NotificationOptions & { vibrate?: number[]; badge?: string; requireInteraction?: boolean } = {
-    body, icon: '/favicon.ico', badge: '/favicon.ico',
+    body, icon: '/icon-192.png', badge: '/icon-192.png',
     tag: tag || 'mmr-notification', vibrate: [100, 50, 100, 50, 200],
     requireInteraction: false,
   };
