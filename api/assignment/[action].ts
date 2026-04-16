@@ -167,6 +167,16 @@ function buildRespondUrl(_assignmentId: string, action: 'accept' | 'decline', to
   return `${APP_URL}/api/assignment/respond?t=${encodeURIComponent(token)}&r=${action}`;
 }
 
+/** Shorten a URL via TinyURL (free, no key). Falls back to the original URL. */
+async function shortenUrl(longUrl: string): Promise<string> {
+  try {
+    const res = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`, { signal: AbortSignal.timeout(2000) });
+    if (!res.ok) return longUrl;
+    const short = await res.text();
+    return short.startsWith('https://tinyurl.com/') ? short.trim() : longUrl;
+  } catch { return longUrl; }
+}
+
 // ─── Auto-cascade ─────────────────────────────────────────────────────────────
 async function triggerAutoCascade(
   supabase: any,
@@ -358,12 +368,16 @@ async function handleCreate(req: any, res: any) {
   const acceptUrl = buildRespondUrl(assignment.id, 'accept', assignment.response_token);
   const declineUrl = buildRespondUrl(assignment.id, 'decline', assignment.response_token);
 
-  // skipWA: return URLs for client-side wa.me direct send, skip Interakt
+  // skipWA: return shortened URLs for client-side wa.me direct send, skip Interakt
   if (skipWA) {
+    const [shortAccept, shortDecline] = await Promise.all([
+      shortenUrl(acceptUrl),
+      shortenUrl(declineUrl),
+    ]);
     return res.status(200).json({
       assignmentId: assignment.id,
-      acceptUrl,
-      declineUrl,
+      acceptUrl: shortAccept,
+      declineUrl: shortDecline,
       whatsappSent: false,
     });
   }
