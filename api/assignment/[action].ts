@@ -323,7 +323,7 @@ async function handleCreate(req: any, res: any) {
   const admin = await verifyAdmin(req);
   if (!admin) return res.status(403).json({ error: 'Forbidden: admin access required' });
 
-  const { projectId, teamMemberId, roleNeeded, timeoutHours } = req.body || {};
+  const { projectId, teamMemberId, roleNeeded, timeoutHours, skipWA } = req.body || {};
   if (!projectId || !teamMemberId || !roleNeeded) return res.status(400).json({ error: 'projectId, teamMemberId, and roleNeeded are required' });
 
   const expireHours = Number(timeoutHours) || Number(process.env.ASSIGNMENT_TIMEOUT_HOURS) || 4;
@@ -357,6 +357,17 @@ async function handleCreate(req: any, res: any) {
 
   const acceptUrl = buildRespondUrl(assignment.id, 'accept', assignment.response_token);
   const declineUrl = buildRespondUrl(assignment.id, 'decline', assignment.response_token);
+
+  // skipWA: return URLs for client-side wa.me direct send, skip Interakt
+  if (skipWA) {
+    return res.status(200).json({
+      assignmentId: assignment.id,
+      acceptUrl,
+      declineUrl,
+      whatsappSent: false,
+    });
+  }
+
   const shootDate = project.event_date ? format(parseISO(project.event_date), 'd MMM yyyy') : 'TBD';
 
   const waResult = await Promise.race([
