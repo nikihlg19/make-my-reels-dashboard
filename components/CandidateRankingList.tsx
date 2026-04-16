@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { CheckCircle, XCircle, MapPin, Star, Briefcase, ChevronDown, Send, RefreshCw } from 'lucide-react';
 import type { RankedCandidate } from '../src/hooks/useCandidateRanking';
 import type { ProjectAssignment } from '../types';
@@ -6,6 +6,7 @@ import type { ProjectAssignment } from '../types';
 interface CandidateRankingListProps {
   candidates: RankedCandidate[];
   onAssign: (candidate: RankedCandidate) => void;
+  onDirectWhatsApp?: (candidate: RankedCandidate) => void;
   assigningId?: string | null;
   alreadyAssignedIds?: string[];
   assignments?: ProjectAssignment[];
@@ -53,9 +54,29 @@ function ScoreBreakdownTooltip({ breakdown }: { breakdown: RankedCandidate['brea
 }
 
 export const CandidateRankingList: React.FC<CandidateRankingListProps> = ({
-  candidates, onAssign, assigningId, alreadyAssignedIds = [], assignments = [],
+  candidates, onAssign, onDirectWhatsApp, assigningId, alreadyAssignedIds = [], assignments = [],
 }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [interaktConfirmId, setInteraktConfirmId] = useState<string | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didLongPress = useRef(false);
+
+  const startLongPress = (candidate: RankedCandidate) => {
+    didLongPress.current = false;
+    longPressTimer.current = setTimeout(() => {
+      didLongPress.current = true;
+      setInteraktConfirmId(candidate.member.id);
+    }, 500);
+  };
+
+  const cancelLongPress = () => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+  };
+
+  const handleSendClick = (candidate: RankedCandidate) => {
+    if (didLongPress.current) return; // handled by long press
+    onDirectWhatsApp ? onDirectWhatsApp(candidate) : onAssign(candidate);
+  };
 
   if (candidates.length === 0) {
     return (
@@ -83,7 +104,7 @@ export const CandidateRankingList: React.FC<CandidateRankingListProps> = ({
           'text-rose-600 bg-rose-50';
 
         return (
-          <div key={c.member.id} className={`rounded-2xl border transition-all ${unavailable ? 'border-rose-100 bg-rose-50/40 opacity-70' : isAssigned ? 'border-emerald-200 bg-emerald-50/40' : 'border-slate-100 bg-white hover:border-indigo-100'}`}>
+          <div key={c.member.id} className={`relative rounded-2xl border transition-all ${unavailable ? 'border-rose-100 bg-rose-50/40 opacity-70' : isAssigned ? 'border-emerald-200 bg-emerald-50/40' : 'border-slate-100 bg-white hover:border-indigo-100'}`}>
             <div className="flex items-center gap-3 p-3">
               {/* Rank */}
               <div className="w-5 text-center text-[9px] font-black text-slate-300 shrink-0">#{idx + 1}</div>
@@ -140,6 +161,11 @@ export const CandidateRankingList: React.FC<CandidateRankingListProps> = ({
                   type="button"
                   disabled={isAssigning}
                   onClick={() => onAssign(c)}
+                  onMouseDown={() => startLongPress(c)}
+                  onMouseUp={cancelLongPress}
+                  onMouseLeave={cancelLongPress}
+                  onTouchStart={() => startLongPress(c)}
+                  onTouchEnd={cancelLongPress}
                   className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all shrink-0 ${
                     isAssigning ? 'bg-amber-400 text-white opacity-70 cursor-wait' :
                     'bg-amber-100 hover:bg-amber-200 text-amber-700 active:scale-95'
@@ -152,7 +178,12 @@ export const CandidateRankingList: React.FC<CandidateRankingListProps> = ({
                 <button
                   type="button"
                   disabled={isAssigning || unavailable}
-                  onClick={() => onAssign(c)}
+                  onClick={() => handleSendClick(c)}
+                  onMouseDown={() => startLongPress(c)}
+                  onMouseUp={cancelLongPress}
+                  onMouseLeave={cancelLongPress}
+                  onTouchStart={() => startLongPress(c)}
+                  onTouchEnd={cancelLongPress}
                   className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all shrink-0 ${
                     unavailable ? 'bg-slate-100 text-slate-300 cursor-not-allowed' :
                     isAssigning ? 'bg-emerald-500 text-white opacity-70 cursor-wait' :
@@ -162,6 +193,30 @@ export const CandidateRankingList: React.FC<CandidateRankingListProps> = ({
                   <Send size={9} />
                   {isAssigning ? 'Sending...' : 'Send'}
                 </button>
+              )}
+
+              {/* Interakt confirm popup (long-press) */}
+              {interaktConfirmId === c.member.id && (
+                <div className="absolute right-3 bottom-full mb-2 z-50 bg-white border border-slate-200 rounded-2xl shadow-xl p-3 w-56 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2">Send via Interakt?</p>
+                  <p className="text-[8px] text-slate-400 mb-3">This will send the assignment template through your WhatsApp BSP.</p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setInteraktConfirmId(null); onAssign(c); }}
+                      className="flex-1 py-1.5 rounded-xl bg-indigo-600 text-white text-[8px] font-black uppercase tracking-widest hover:bg-indigo-700 active:scale-95 transition-all"
+                    >
+                      Send
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInteraktConfirmId(null)}
+                      className="flex-1 py-1.5 rounded-xl bg-slate-100 text-slate-500 text-[8px] font-black uppercase tracking-widest hover:bg-slate-200 active:scale-95 transition-all"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
 

@@ -8,6 +8,7 @@ interface UseAssignmentsResult {
   loading: boolean;
   error: string | null;
   sendRequest: (projectId: string, teamMemberId: string, roleNeeded: string) => Promise<{ success: boolean; error?: string }>;
+  createAssignment: (projectId: string, teamMemberId: string, roleNeeded: string) => Promise<{ success: boolean; assignmentId?: string; acceptUrl?: string; declineUrl?: string; error?: string }>;
   cancelAssignment: (assignmentId: string) => Promise<{ success: boolean; error?: string }>;
   getAssignmentsForProject: (projectId: string) => ProjectAssignment[];
   getLatestAssignmentForMember: (projectId: string, teamMemberId: string) => ProjectAssignment | undefined;
@@ -147,6 +148,52 @@ export function useAssignments(projectIds?: string[]): UseAssignmentsResult {
     }
   }, [session]);
 
+  /** Creates an assignment record without sending via Interakt, returns URLs for wa.me */
+  const createAssignment = useCallback(async (
+    projectId: string,
+    teamMemberId: string,
+    roleNeeded: string
+  ): Promise<{ success: boolean; assignmentId?: string; acceptUrl?: string; declineUrl?: string; error?: string }> => {
+    if (!session) return { success: false, error: 'Not authenticated' };
+    const token = await session.getToken();
+
+    try {
+      const res = await fetch('/api/assignment/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ projectId, teamMemberId, roleNeeded, skipWA: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) return { success: false, error: data.error || `Server error (${res.status})` };
+      // Optimistically update assignments list as pending
+      setAssignments(prev => {
+        const filtered = prev.filter(a => !(a.projectId === projectId && a.teamMemberId === teamMemberId));
+        return [{
+          id: data.assignmentId,
+          projectId,
+          teamMemberId,
+          roleNeeded,
+          status: 'pending' as AssignmentStatus,
+          whatsappMessageId: undefined,
+          sentAt: undefined,
+          respondedAt: undefined,
+          declineReason: undefined,
+          attemptNumber: 1,
+          assignmentGroupId: '',
+          autoExpireAt: undefined,
+          createdBy: 'admin',
+          createdAt: new Date().toISOString(),
+        }, ...filtered];
+      });
+      return { success: true, assignmentId: data.assignmentId, acceptUrl: data.acceptUrl, declineUrl: data.declineUrl };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Network error' };
+    }
+  }, [session]);
+
   const cancelAssignment = useCallback(async (
     assignmentId: string
   ): Promise<{ success: boolean; error?: string }> => {
@@ -183,6 +230,7 @@ export function useAssignments(projectIds?: string[]): UseAssignmentsResult {
     loading,
     error,
     sendRequest,
+    createAssignment,
     cancelAssignment,
     getAssignmentsForProject,
     getLatestAssignmentForMember,

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Users, RefreshCw, ChevronDown } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 import type { Project } from '../types';
 import { useCandidateRanking } from '../src/hooks/useCandidateRanking';
 import { useAssignments } from '../src/hooks/useAssignments';
@@ -24,7 +25,7 @@ export const AssignTeamModal: React.FC<AssignTeamModalProps> = ({ project, onClo
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
 
   const { candidates, assignmentGroupId, loading, error, fetchCandidates } = useCandidateRanking();
-  const { sendRequest, getAssignmentsForProject } = useAssignments([project.id]);
+  const { sendRequest, createAssignment, getAssignmentsForProject } = useAssignments([project.id]);
   const existingAssignments = getAssignmentsForProject(project.id);
 
   useEffect(() => {
@@ -40,6 +41,43 @@ export const AssignTeamModal: React.FC<AssignTeamModalProps> = ({ project, onClo
         return memberRoles.some(r => r?.toLowerCase() === selectedRole.toLowerCase());
       });
 
+  /** Normal tap: create assignment record (no Interakt) + open wa.me with pre-filled message */
+  const handleDirectWhatsApp = async (candidate: RankedCandidate) => {
+    setAssigningId(candidate.member.id);
+    const result = await createAssignment(project.id, candidate.member.id, selectedRole);
+    setAssigningId(null);
+    if (!result.success) return;
+
+    setSuccessIds(prev => [...prev, candidate.member.id]);
+
+    const shootDate = project.eventDate
+      ? format(parseISO(project.eventDate), 'd MMM yyyy')
+      : 'TBD';
+    const shootTime = project.eventTime || 'TBD';
+    const location = (project as any).location || (project as any).shootLocation || 'TBD';
+    const role = selectedRole === 'All' ? (Array.isArray(candidate.member.role) ? candidate.member.role[0] : candidate.member.role) : selectedRole;
+
+    const message = [
+      `Hi ${candidate.member.name}! 👋`,
+      ``,
+      `You've been selected for a shoot with *Make My Reels*:`,
+      ``,
+      `📽️ *Project:* ${project.title}`,
+      `📅 *Date:* ${shootDate}`,
+      `⏰ *Time:* ${shootTime}`,
+      `📍 *Location:* ${location}`,
+      `🎬 *Role:* ${role}`,
+      ``,
+      `Please confirm your availability:`,
+      `✅ Accept: ${result.acceptUrl}`,
+      `❌ Decline: ${result.declineUrl}`,
+    ].join('\n');
+
+    const phone = candidate.member.phone.replace(/\D/g, '');
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  /** Long press: send via Interakt (original flow) */
   const handleAssign = async (candidate: RankedCandidate) => {
     setAssigningId(candidate.member.id);
     const result = await sendRequest(project.id, candidate.member.id, selectedRole);
@@ -124,6 +162,7 @@ export const AssignTeamModal: React.FC<AssignTeamModalProps> = ({ project, onClo
             <CandidateRankingList
               candidates={filteredCandidates}
               onAssign={handleAssign}
+              onDirectWhatsApp={handleDirectWhatsApp}
               assigningId={assigningId}
               alreadyAssignedIds={allAssignedIds}
               assignments={existingAssignments}

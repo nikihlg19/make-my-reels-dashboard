@@ -51,7 +51,15 @@ export function useSupabaseSync({
       if (teamRes.error) throw teamRes.error;
       if (clientsRes.error) throw clientsRes.error;
 
-      const projects = (projectsRes.data || []).map(rowToProject);
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 7);
+      const projects = (projectsRes.data || [])
+        .map(rowToProject)
+        .filter(p => {
+          if (p.status !== 'Expired') return true;
+          if (!p.eventDate) return false; // Expired with no date — hide
+          return new Date(p.eventDate) >= cutoff;
+        });
       const team = (teamRes.data || []).map(rowToTeamMember);
       const clients = (clientsRes.data || []).map(rowToClient);
       if (rolesRes.error) console.warn('[supabaseSync] team_roles fetch failed:', rolesRes.error.message);
@@ -94,17 +102,30 @@ export function useSupabaseSync({
         'postgres_changes',
         { event: '*', schema: 'public', table: 'projects' },
         (payload) => {
+          const isStaleExpired = (p: Project) => {
+            if (p.status !== 'Expired') return false;
+            if (!p.eventDate) return true;
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - 7);
+            return new Date(p.eventDate) < cutoff;
+          };
           if (payload.eventType === 'INSERT') {
             const newProject = rowToProject(payload.new);
+            if (isStaleExpired(newProject)) return;
             const current = projectsRef.current;
             if (!current.find(p => p.id === newProject.id)) {
               setProjects([newProject, ...current]);
             }
           } else if (payload.eventType === 'UPDATE') {
             const updated = rowToProject(payload.new);
-            setProjects(
-              projectsRef.current.map(p => p.id === updated.id ? updated : p)
-            );
+            if (isStaleExpired(updated)) {
+              // Was updated to stale — remove it
+              setProjects(projectsRef.current.filter(p => p.id !== updated.id));
+            } else {
+              setProjects(
+                projectsRef.current.map(p => p.id === updated.id ? updated : p)
+              );
+            }
           } else if (payload.eventType === 'DELETE') {
             setProjects(
               projectsRef.current.filter(p => p.id !== payload.old.id)

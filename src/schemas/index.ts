@@ -133,6 +133,7 @@ export const AssignmentCreateSchema = z.object({
   teamMemberId: z.string().uuid('teamMemberId must be a UUID'),
   roleNeeded: z.string().min(1, 'roleNeeded is required'),
   timeoutHours: z.number().positive().optional(),
+  skipWA: z.boolean().optional(),
 });
 
 export const CreateOrderSchema = z.object({

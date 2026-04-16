@@ -38,7 +38,7 @@ export default async function handler(req: any, res: any) {
 
   const validated = validateBody(AssignmentCreateSchema, req, res);
   if (!validated) return;
-  const { projectId, teamMemberId, roleNeeded, timeoutHours } = validated;
+  const { projectId, teamMemberId, roleNeeded, timeoutHours, skipWA } = validated;
 
   const expireHours = Number(timeoutHours) || Number(process.env.ASSIGNMENT_TIMEOUT_HOURS) || 4;
 
@@ -94,6 +94,17 @@ export default async function handler(req: any, res: any) {
   const declineUrl = buildRespondUrl(assignment.id, 'decline', assignment.response_token);
 
   // --- Send WhatsApp (best-effort, max 5 seconds — never blocks response) ---
+  if (skipWA) {
+    return res.status(200).json({
+      assignmentId: assignment.id,
+      responseToken: assignment.response_token,
+      acceptUrl,
+      declineUrl,
+      whatsappSent: false,
+    });
+  }
+
+
   const shootDate = project.event_date
     ? format(parseISO(project.event_date), 'd MMM yyyy')
     : 'TBD';

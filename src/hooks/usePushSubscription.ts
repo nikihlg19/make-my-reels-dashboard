@@ -99,7 +99,7 @@ export function usePushSubscription() {
         userAgent: navigator.userAgent
       };
 
-      const jwt = await getToken({ template: 'supabase' });
+      const jwt = await getToken();
       const response = await fetch('/api/subscribe-push', {
         method: 'POST',
         headers: {

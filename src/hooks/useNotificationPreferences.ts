@@ -1,18 +1,25 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { useState, useEffect, useCallback } from 'react';
+import { useSession } from '@clerk/react';
+import { createClerkSupabaseClient } from '../lib/supabase';
 import { NotificationPreferences, NotificationPreferencesSchema } from '../schemas';
 import { toast } from 'sonner';
 
 /**
  * Hook to manage notification preferences for the current user.
+ * Uses the Clerk-authed Supabase client so RLS policies pass correctly.
  */
 export function useNotificationPreferences(userId?: string) {
+  const { session } = useSession();
   const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
-  const [telegramChatId, setTelegramChatId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const getClient = useCallback(() => {
+    return session ? createClerkSupabaseClient(session) : null;
+  }, [session]);
 
   useEffect(() => {
     async function loadPrefs() {
+      const supabase = getClient();
       if (!supabase || !userId) {
         setIsLoading(false);
         return;
@@ -24,16 +31,13 @@ export function useNotificationPreferences(userId?: string) {
         .select('*')
         .eq('user_id', userId)
         .single();
-        
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "No rows found", which is fine for first load
+
+      if (error && error.code !== 'PGRST116') {
         console.error('Error loading preferences:', error);
         toast.error('Failed to load notification settings');
       }
-      
-      if (data) {
-        setTelegramChatId(data.telegram_chat_id || null);
 
-        // Map DB snake_case to schema camelCase where necessary
+      if (data) {
         const mapped = {
           userId: data.user_id,
           shoot_reminder_1h: data.shoot_reminder_1h,
@@ -45,34 +49,32 @@ export function useNotificationPreferences(userId?: string) {
           payment_received: data.payment_received,
           quietHoursStart: data.quiet_hours_start,
           quietHoursEnd: data.quiet_hours_end,
-          timezone: data.timezone
+          timezone: data.timezone,
         };
         try {
-          const validated = NotificationPreferencesSchema.parse(mapped);
-          setPreferences(validated);
+          setPreferences(NotificationPreferencesSchema.parse(mapped));
         } catch (e) {
-          console.error("Schema config error:", e);
+          console.error('Schema config error:', e);
         }
       } else {
-        // Defaults if none exist
+        // First time — use schema defaults
         setPreferences(NotificationPreferencesSchema.parse({ userId }));
       }
-      
+
       setIsLoading(false);
     }
-    
+
     loadPrefs();
-  }, [userId]);
+  }, [userId, session]);
 
   const updatePreferences = async (newPrefs: Partial<NotificationPreferences>) => {
+    const supabase = getClient();
     if (!preferences || !supabase) return false;
 
     const previous = preferences;
     const updated = { ...preferences, ...newPrefs };
-    // Optimistic UI update
     setPreferences(updated as NotificationPreferences);
-    
-    // Reverse map camelCase to snake_case for DB
+
     const dbPayload = {
       user_id: updated.userId,
       shoot_reminder_1h: updated.shoot_reminder_1h,
@@ -82,39 +84,24 @@ export function useNotificationPreferences(userId?: string) {
       project_assigned: updated.project_assigned,
       overdue_alert: updated.overdue_alert,
       payment_received: updated.payment_received,
-      quiet_hours_start: updated.quietHoursStart,
-      quiet_hours_end: updated.quietHoursEnd,
+      quiet_hours_start: updated.quietHoursStart ?? null,
+      quiet_hours_end: updated.quietHoursEnd ?? null,
       timezone: updated.timezone,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     };
-    
+
     const { error } = await supabase
       .from('notification_preferences')
       .upsert(dbPayload, { onConflict: 'user_id' });
-      
+
     if (error) {
       console.error('Error saving preferences:', error);
       toast.error('Failed to save settings');
       setPreferences(previous);
       return false;
     }
-    
-    toast.success('Notification settings updated');
-    return true;
-  };
 
-  const disconnectTelegram = async () => {
-    if (!supabase || !userId) return false;
-    const { error } = await supabase
-      .from('notification_preferences')
-      .update({ telegram_chat_id: null })
-      .eq('user_id', userId);
-    if (error) {
-      toast.error('Failed to disconnect Telegram');
-      return false;
-    }
-    setTelegramChatId(null);
-    toast.success('Telegram disconnected');
+    toast.success('Settings saved');
     return true;
   };
 
@@ -122,7 +109,5 @@ export function useNotificationPreferences(userId?: string) {
     preferences,
     isLoading,
     updatePreferences,
-    telegramChatId,
-    disconnectTelegram,
   };
 }
