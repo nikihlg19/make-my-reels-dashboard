@@ -40,7 +40,7 @@ export default defineConfig(({ mode }) => {
         env.SENTRY_AUTH_TOKEN
           ? sentryVitePlugin({
               org: env.SENTRY_ORG || 'make-my-reels',
-              project: env.SENTRY_PROJECT || 'dashboard',
+              project: env.SENTRY_PROJECT || 'javascript-react',
               authToken: env.SENTRY_AUTH_TOKEN,
             })
           : null,
