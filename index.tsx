@@ -58,6 +58,24 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').then(registration => {
       console.log('SW registered: ', registration);
+
+      // Check for updates periodically (every 60s)
+      setInterval(() => registration.update(), 60_000);
+
+      // When a new SW is waiting, prompt the user to refresh
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        if (!newWorker) return;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            // New version available — show toast via sonner (imported by App)
+            // Use a simple confirm since sonner isn't available outside React
+            if (confirm('A new version is available. Reload to update?')) {
+              window.location.reload();
+            }
+          }
+        });
+      });
     }).catch(registrationError => {
       console.log('SW registration failed: ', registrationError);
     });

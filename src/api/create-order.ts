@@ -1,4 +1,6 @@
 import { createClerkClient } from '@clerk/backend';
+import { validateBody } from '../utils/validateRequest';
+import { CreateOrderSchema } from '../schemas';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
@@ -22,11 +24,10 @@ export default async function handler(req: any, res: any) {
     return res.status(401).json({ message: 'Unauthorized: Invalid token' });
   }
 
-  const { amount, currency = 'INR', receipt = 'receipt_1' } = req.body;
-
-  if (!amount || typeof amount !== 'number' || amount <= 0 || amount > 10000000) {
-    return res.status(400).json({ message: 'Invalid amount: must be a positive number up to 10,000,000' });
-  }
+  const validated = validateBody(CreateOrderSchema, req, res);
+  if (!validated) return;
+  const { amount, currency = 'INR' } = validated;
+  const receipt = req.body.receipt || 'receipt_1';
 
   const key_id = process.env.VITE_RAZORPAY_KEY_ID;
   const key_secret = process.env.RAZORPAY_KEY_SECRET;

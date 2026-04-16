@@ -1,4 +1,7 @@
 import { createClerkClient } from '@clerk/backend';
+import { checkRateLimit } from '../utils/rateLimit';
+import { validateBody } from '../utils/validateRequest';
+import { SendEmailSchema } from '../schemas';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
@@ -20,9 +23,17 @@ export default async function handler(req: any, res: any) {
     } catch {
       return res.status(401).json({ message: 'Unauthorized' });
     }
+
+    // Rate limit: 10 emails per hour for non-cron callers
+    const allowed = await checkRateLimit('user', 'send-email', 10, 3600);
+    if (!allowed) {
+      return res.status(429).json({ message: 'Email rate limit exceeded. Try again later.' });
+    }
   }
 
-  const { to, subject, html, template, templateData } = req.body;
+  const validated = validateBody(SendEmailSchema, req, res);
+  if (!validated) return;
+  const { to, subject, html, template, templateData } = validated;
   const apiKey = process.env.RESEND_API_KEY;
 
   if (!apiKey) {

@@ -112,6 +112,36 @@ export const PushSubscriptionSchema = z.object({
 });
 
 // ============================================================
+// API Request Schemas
+// ============================================================
+
+export const DistanceQuerySchema = z.object({
+  origin: z.string().min(3, 'Origin is required (min 3 chars)'),
+  destination: z.string().min(3, 'Destination is required (min 3 chars)'),
+});
+
+export const SendEmailSchema = z.object({
+  to: z.string().min(1, 'Recipient is required'),
+  subject: z.string().min(1, 'Subject is required'),
+  html: z.string().optional(),
+  template: z.string().optional(),
+  templateData: z.record(z.string(), z.any()).optional(),
+});
+
+export const AssignmentCreateSchema = z.object({
+  projectId: z.string().uuid('projectId must be a UUID'),
+  teamMemberId: z.string().uuid('teamMemberId must be a UUID'),
+  roleNeeded: z.string().min(1, 'roleNeeded is required'),
+  timeoutHours: z.number().positive().optional(),
+});
+
+export const CreateOrderSchema = z.object({
+  amount: z.number().positive('Amount must be positive').max(10_000_000, 'Amount exceeds maximum'),
+  currency: z.literal('INR').optional().default('INR'),
+  receipt: z.string().optional(),
+});
+
+// ============================================================
 // Inferred Types (use these instead of manual interfaces)
 // ============================================================
 export type ClientInput = z.infer<typeof ClientSchema>;

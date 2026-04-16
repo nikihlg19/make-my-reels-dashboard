@@ -2,11 +2,11 @@ import React from 'react';
 import {
   LayoutGrid, Calendar as CalendarIcon, Users, BarChart3,
   Lock, EyeOff, Database, RefreshCw, CheckCircle,
-  UploadCloud, AlertTriangle, Briefcase, Code2, Sun
+  UploadCloud, AlertTriangle, Briefcase, Sun
 } from 'lucide-react';
 import { UserButton } from '@clerk/react';
 
-type TabType = 'Board' | 'Calendar' | 'Clients' | 'Team' | 'Analytics' | 'Script';
+type TabType = 'Board' | 'Calendar' | 'Clients' | 'Team' | 'Analytics';
 
 export interface HeaderNavProps {
   activeTab: TabType;
@@ -50,8 +50,7 @@ const HeaderNav: React.FC<HeaderNavProps> = ({
     { id: 'Calendar', icon: CalendarIcon },
     { id: 'Clients', icon: Briefcase },
     { id: 'Team', icon: Users },
-    ...(isAdmin ? [{ id: 'Analytics', icon: BarChart3 }] : []),
-    ...(isAdmin ? [{ id: 'Script', icon: Code2 }] : [])
+    ...(isAdmin ? [{ id: 'Analytics', icon: BarChart3 }] : [])
   ];
 
   return (

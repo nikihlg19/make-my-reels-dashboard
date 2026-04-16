@@ -1,10 +1,9 @@
 ﻿
-import React, { useRef, useState, useEffect } from 'react';
-import { GAS_CODE } from '../src/utils/gasCode';
+import React, { useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
-import { 
-  FileSpreadsheet, Upload, Download, AlertCircle, 
-  CheckCircle2, FilePlus, Globe, RefreshCw, Link as LinkIcon, Lock, Code2, Clipboard, Zap, ShieldCheck
+import {
+  FileSpreadsheet, Upload, Download, AlertCircle,
+  CheckCircle2, FilePlus, Globe, RefreshCw, Link as LinkIcon
 } from 'lucide-react';
 import { Project, TeamMember, Client, InstaLink, Priority, ProjectStatus } from '../types';
 import { parseTime, parseDate } from '../constants';
@@ -14,8 +13,6 @@ interface ExcelDatabaseProps {
   currentData: { projects: Project[]; team: TeamMember[]; clients: Client[] };
   isUnlocked: boolean;
   preconfiguredUrl?: string;
-  scriptUrl?: string;
-  onSaveScriptUrl?: (url: string) => void;
   onSaveReadUrl?: (url: string) => void;
   syncLogs?: any[];
 }
@@ -42,19 +39,12 @@ const getExportUrl = (url: string) => {
   return url;
 };
 
-const ExcelDatabase: React.FC<ExcelDatabaseProps> = ({ onImport, currentData, isUnlocked, preconfiguredUrl, scriptUrl, onSaveScriptUrl, onSaveReadUrl, syncLogs }) => {
+const ExcelDatabase: React.FC<ExcelDatabaseProps> = ({ onImport, currentData, isUnlocked, preconfiguredUrl, onSaveReadUrl, syncLogs }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [remoteUrl, setRemoteUrl] = useState(() => localStorage.getItem('mmr_remote_db_url') || preconfiguredUrl || '');
-  const [localScriptUrl, setLocalScriptUrl] = useState(scriptUrl || '');
   const [isFetching, setIsFetching] = useState(false);
   const [lastSync, setLastSync] = useState(() => localStorage.getItem('mmr_last_excel_sync') || 'Never');
-  const [showScriptCode, setShowScriptCode] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
-  const [testStatus, setTestStatus] = useState<string>('');
-
-  useEffect(() => {
-    if (scriptUrl) setLocalScriptUrl(scriptUrl);
-  }, [scriptUrl]);
 
   const processWorkbook = (wb: XLSX.WorkBook) => {
     // Robust sheet finding (Case Insensitive)
@@ -188,40 +178,6 @@ const ExcelDatabase: React.FC<ExcelDatabaseProps> = ({ onImport, currentData, is
       alert("Remote Database Sync Failed. Ensure the master link is public and direct /export.");
     } finally {
       setIsFetching(false);
-    }
-  };
-
-  const handleTestWrite = async () => {
-    if (!localScriptUrl) return;
-    setTestStatus('Sending...');
-    try {
-      // Use cors mode to see real errors. GAS often fails with opaque responses in no-cors.
-      // If deployed as 'Anyone', it should accept simple POST requests.
-      const payload = {
-         action: "Test Connection"
-      };
-      
-      // We use 'no-cors' by default in App.tsx because it's safer for cross-origin, 
-      // but here we try to force a check. If it fails CORS, it will throw.
-      // NOTE: GAS Web Apps don't officially support CORS preflight, so standard fetch might fail.
-      // We will assume if it throws NetworkError, it's a CORS issue (likely permissions).
-      
-      await fetch(localScriptUrl, {
-          method: 'POST',
-          mode: 'no-cors', 
-          redirect: 'follow',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify(payload)
-      });
-      
-      // Since no-cors is opaque, we can't be 100% sure it succeeded without checking the sheet,
-      // but if it didn't throw, it reached the server.
-      setTestStatus('Success (Check Sheet)');
-      setTimeout(() => setTestStatus(''), 5000);
-    } catch (e) {
-      console.error("Test connection failed:", e);
-      setTestStatus('Failed');
-      alert("Connection Failed. Did you set 'Who has access' to 'Anyone'?");
     }
   };
 
@@ -362,94 +318,7 @@ const ExcelDatabase: React.FC<ExcelDatabaseProps> = ({ onImport, currentData, is
           <p className="text-[9px] text-amber-600 font-bold ml-2">âš ï¸ Important: Click "Share" in your Google Sheet and change "General access" to "Anyone with the link".</p>
         </div>
 
-        {/* Write Connection */}
-        <div className="space-y-2">
-           <div className="flex items-center justify-between">
-             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2 flex items-center gap-2">
-               Google Script Writer URL <Lock size={10} className="text-amber-500" />
-             </label>
-             <button 
-               onClick={() => setShowScriptCode(!showScriptCode)}
-               className="text-[9px] font-black text-indigo-500 hover:underline flex items-center gap-1"
-             >
-               <Code2 size={10} /> Get Script Code
-             </button>
-           </div>
-           
-           {showScriptCode && (
-             <div className="p-4 bg-slate-900 rounded-xl mb-2 relative group">
-               <pre className="text-[10px] text-slate-300 font-mono overflow-x-auto whitespace-pre-wrap max-h-[150px] custom-scrollbar">
-                 {GAS_CODE}
-               </pre>
-               <button 
-                onClick={() => { navigator.clipboard.writeText(GAS_CODE); alert("Code copied! Paste this into your Google Apps Script editor."); }}
-                className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white opacity-0 group-hover:opacity-100 transition-opacity"
-               >
-                 <Clipboard size={14} />
-               </button>
-               <p className="text-[9px] text-slate-500 mt-2 border-t border-slate-800 pt-2 font-bold">
-                 1. Extensions &gt; Apps Script &gt; Paste Code. <br/>
-                 2. <span className="text-amber-400">Deploy &gt; New Deployment</span> (CRITICAL!) <br/>
-                 3. Select "Web App". <span className="text-amber-400">Execute as: Me. Access: Anyone.</span><br/>
-                 4. To enable backups, replace YOUR_GOOGLE_DRIVE_FOLDER_ID in the code, then add a Time-driven trigger for backupDatabase.
-               </p>
-             </div>
-           )}
-
-           <div className="flex gap-2">
-             <div className="relative flex-1">
-               <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
-               <input 
-                 className={`w-full pl-10 pr-4 py-3 border rounded-xl text-xs font-bold focus:border-amber-500 outline-none transition-all placeholder:text-amber-300 text-amber-900 bg-amber-50/50 border-amber-200`}
-                 placeholder="Paste Web App URL here..."
-                 value={localScriptUrl}
-                 onChange={e => setLocalScriptUrl(e.target.value)}
-                 onBlur={() => onSaveScriptUrl && onSaveScriptUrl(localScriptUrl)}
-               />
-             </div>
-             <button 
-               onClick={() => onSaveScriptUrl && onSaveScriptUrl(localScriptUrl)}
-               className={`px-4 rounded-xl flex items-center justify-center shadow-lg transition-all active:scale-95 font-black text-[10px] uppercase tracking-widest ${localScriptUrl ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-300'}`}
-             >
-               Save
-             </button>
-             {localScriptUrl && (
-                <button 
-                  onClick={handleTestWrite} 
-                  title="Test Write (POST) to Check Permissions"
-                  className="px-3 rounded-xl bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-100"
-                >
-                  <Zap size={14} />
-                </button>
-             )}
-           </div>
-           
-           {testStatus && (
-              <p className="text-[8px] font-black text-purple-500 uppercase tracking-widest ml-2 animate-pulse">{testStatus}</p>
-           )}
-           
-           <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200">
-              <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <ShieldCheck size={14} className="text-emerald-500" /> 
-                Deployment Guide
-              </h4>
-              <div className="space-y-3">
-                {[
-                  "Open Google Sheet > Extensions > Apps Script",
-                  "Paste the code from 'Get Script Code' & Save",
-                  "Click 'Deploy' > 'New Deployment'",
-                  "Select 'Web App' type",
-                  "Execute as: 'Me' | Access: 'Anyone'",
-                  "Copy the 'Web App URL' and paste it above"
-                ].map((step, i) => (
-                  <div key={i} className="flex gap-3 items-start">
-                    <span className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center text-[8px] font-black shrink-0 mt-0.5">{i+1}</span>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">{step}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-        </div>
+        {/* Legacy GAS write connection removed — Supabase is now the source of truth */}
       </div>
 
       {/* Logs Section */}

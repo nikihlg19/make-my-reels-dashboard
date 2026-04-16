@@ -1,11 +1,15 @@
 
 import React, { useState, useMemo, useEffect, useRef, lazy, Suspense, Component, ErrorInfo } from 'react';
+import * as Sentry from '@sentry/react';
 
 // ─── Error Boundary ───────────────────────────────────────────────────────────
 class TabErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean }> {
   constructor(props: any) { super(props); this.state = { hasError: false }; }
   static getDerivedStateFromError() { return { hasError: true }; }
-  componentDidCatch(error: Error, info: ErrorInfo) { console.error('[TabErrorBoundary]', error, info.componentStack); }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    Sentry.captureException(error, { extra: { componentStack: info.componentStack } });
+    console.error('[TabErrorBoundary]', error, info.componentStack);
+  }
   render() {
     if (this.state.hasError) {
       return (
@@ -31,6 +35,12 @@ const Analytics = lazy(() => import('./components/Analytics'));
 const Calendar = lazy(() => import('./components/Calendar'));
 const Clients = lazy(() => import('./components/Clients'));
 
+// Loading skeletons
+import BoardSkeleton from './components/skeletons/BoardSkeleton';
+import TeamSkeleton from './components/skeletons/TeamSkeleton';
+import ClientSkeleton from './components/skeletons/ClientSkeleton';
+import AnalyticsSkeleton from './components/skeletons/AnalyticsSkeleton';
+
 // These are needed eagerly (used in modals outside tabs)
 import { EditProjectModal } from './components/EditProjectModal';
 import { AssignTeamModal } from './components/AssignTeamModal';
@@ -40,7 +50,6 @@ import NewProjectModal from './components/NewProjectModal';
 import NewClientModal from './components/NewClientModal';
 import ExcelDatabase from './components/ExcelDatabase';
 import HeaderNav from './components/HeaderNav';
-import GASScript from './components/GASScript';
 import FilterBar from './components/FilterBar';
 import { DailyDigestView } from './components/DailyDigestView';
 import { useAdminDigest } from './src/hooks/useAdminDigest';
@@ -49,7 +58,7 @@ import { useAuthState } from './src/hooks/useAuthState';
 import { useSupabaseSync } from './src/hooks/useSupabaseSync';
 import { useSupabaseMutations } from './src/hooks/useSupabaseMutations';
 import { useApprovalQueue } from './src/hooks/useApprovalQueue';
-import { parseDateSafe } from './src/utils/sheetSync';
+import { parseDateSafe } from './src/utils/dateHelpers';
 
 export type DateFilterType = '1m' | '1y' | 'all' | 'custom';
 
@@ -59,14 +68,22 @@ export interface DateFilter {
   end?: string;
 }
 
-// Legacy GAS references (kept for ExcelDatabase import compatibility)
-const MASTER_DB_URL = import.meta.env.VITE_MASTER_DB_URL || '';
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'Board' | 'Calendar' | 'Clients' | 'Team' | 'Analytics' | 'Script'>('Board');
+  const [activeTab, setActiveTab] = useState<'Board' | 'Calendar' | 'Clients' | 'Team' | 'Analytics'>('Board');
 
-  // Legacy: kept only for ExcelDatabase preconfiguredUrl
-  const scriptUrl = ''; // GAS removed — Supabase is now the source of truth
+  // Offline detection
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  useEffect(() => {
+    const goOffline = () => setIsOffline(true);
+    const goOnline = () => setIsOffline(false);
+    window.addEventListener('offline', goOffline);
+    window.addEventListener('online', goOnline);
+    return () => {
+      window.removeEventListener('offline', goOffline);
+      window.removeEventListener('online', goOnline);
+    };
+  }, []);
 
   const [projects, setProjects] = useState<Project[]>(() => {
     const saved = localStorage.getItem('mmr_projects');
@@ -390,10 +407,6 @@ const App: React.FC = () => {
     localStorage.setItem('mmr_unlocked', 'false');
   };
 
-  // Legacy handlers — kept as no-ops for ExcelDatabase prop compatibility
-  const handleReadUrlSave = (_url: string) => {};
-  const handleSaveScriptUrl = (_url: string) => {};
-
   // --- Derived State ---
   const activeProjects = useMemo(() => projects.filter(p => !p.isDeleted), [projects]);
   const activeTeam = useMemo(() => team.filter(t => !t.isDeleted), [team]);
@@ -448,6 +461,7 @@ const App: React.FC = () => {
         </div>
       ) : (
         <div className="h-screen flex flex-col bg-[#F8FAFC] text-slate-900 overflow-hidden font-sans">
+          <Sentry.ErrorBoundary fallback={<div className="bg-white border-b px-4 py-3 text-sm text-red-600 font-medium">Header failed to load. <button onClick={() => window.location.reload()} className="underline ml-1">Reload</button></div>}>
           <HeaderNav
             activeTab={activeTab}
             setActiveTab={setActiveTab}
@@ -467,7 +481,9 @@ const App: React.FC = () => {
             onShowDigest={() => setShowDigest(true)}
             digestUrgent={digestUrgent}
           />
+          </Sentry.ErrorBoundary>
 
+          <Sentry.ErrorBoundary fallback={<div className="bg-white border-b px-4 py-2 text-sm text-red-600 font-medium">Filter bar failed to load. <button onClick={() => window.location.reload()} className="underline ml-1">Reload</button></div>}>
           <FilterBar
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
@@ -490,16 +506,28 @@ const App: React.FC = () => {
             isAdmin={isAdmin}
             onSmartAssign={setSmartAssignProjectId}
           />
+          </Sentry.ErrorBoundary>
+
+      {isOffline && (
+        <div className="bg-amber-500 text-white text-center text-xs font-bold py-1.5 px-4 shrink-0">
+          You're offline — changes won't sync until you reconnect
+        </div>
+      )}
 
       <main className="flex-1 relative overflow-hidden bg-[#F4F5F7]">
         <TabErrorBoundary>
-        <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="animate-spin w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full" /></div>}>
+        <Suspense fallback={
+          activeTab === 'Board' ? <BoardSkeleton /> :
+          activeTab === 'Team' ? <TeamSkeleton /> :
+          activeTab === 'Clients' ? <ClientSkeleton /> :
+          activeTab === 'Analytics' ? <AnalyticsSkeleton /> :
+          <div className="flex items-center justify-center h-full"><div className="animate-spin w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full" /></div>
+        }>
           {activeTab === 'Board' && <Board projects={filteredProjects} team={activeTeam} clients={activeClients} isAdmin={isAdmin} pendingProjectDeletes={pendingProjectDeletes} onCancelApproval={onCancelApproval} onProjectUpdate={onProjectUpdate} onProjectDelete={onProjectDelete} onEditProject={setEditingProject} onCreateProjectWithStatus={(status: ProjectStatus) => { setInitialProjectStatus(status); setIsNewProjectModalOpen(true); }} isFinancialsUnlocked={isFinancialsUnlocked} onRequestUnlock={handleUnlockSuccess} onPreviewMember={setPreviewMember} onClientClick={(clientId: string) => { const client = activeClients.find(c => c.id === clientId); if (client) { setPreviewClient(client); } }} isMobileStacked={isMobileStacked} onSmartAssign={setSmartAssignProjectId} />}
           {activeTab === 'Calendar' && <Calendar projects={activeProjects} onCreateProject={() => setIsNewProjectModalOpen(true)} onEditProject={(id: string) => setEditingProject(projects.find(p => p.id === id) || null)} />}
           {activeTab === 'Clients' && <Clients clients={activeClients} projects={activeProjects} team={activeTeam} isAdmin={isAdmin} onAddClient={() => setIsNewClientModalOpen(true)} onUpdateClient={handleClientUpdate} onDeleteClient={handleClientDelete} onEditProject={setEditingProject} onDeleteProject={onProjectDelete} onPreviewMember={setPreviewMember} editingClient={editingClient} setEditingClient={setEditingClient} isFinancialsUnlocked={isFinancialsUnlocked} globalSearchQuery={searchQuery} />}
           {activeTab === 'Team' && <Team team={activeTeam} projects={activeProjects} teamRoles={teamRoles} isAdmin={isAdmin} onAddMember={(m: TeamMember) => handleTeamMemberCreate(m)} onDeleteMember={handleTeamMemberDelete} onUpdateMember={handleTeamMemberUpdate} onUpdateMemberTags={(id: string, tags: string[]) => { const tm = team.find(t=>t.id===id); if(tm) handleTeamMemberUpdate({...tm, tags}); }} onUpdateMemberNotes={(id: string, notes: string) => { const tm = team.find(t=>t.id===id); if(tm) handleTeamMemberUpdate({...tm, onboardingNotes: notes}); }} onEditProject={setEditingProject} isFinancialsUnlocked={isFinancialsUnlocked} whatsappMember={null} setWhatsappMember={() => {}} memberForTags={memberForTags} setMemberForTags={setMemberForTags} onGlobalUnlock={handleUnlockSuccess} globalSearchQuery={searchQuery} />}
           {activeTab === 'Analytics' && <Analytics team={activeTeam} projects={filteredProjects} clients={activeClients} dateFilter={dateFilter} setDateFilter={setDateFilter} onPreviewMember={setPreviewMember} onEditProject={setEditingProject} />}
-          {activeTab === 'Script' && <GASScript />}
         </Suspense>
         </TabErrorBoundary>
       </main>
@@ -529,10 +557,6 @@ const App: React.FC = () => {
               onImport={handleExcelImport}
               currentData={{ projects, team, clients }}
               isUnlocked={isFinancialsUnlocked}
-              preconfiguredUrl={MASTER_DB_URL}
-              scriptUrl={scriptUrl}
-              onSaveScriptUrl={handleSaveScriptUrl}
-              onSaveReadUrl={handleReadUrlSave}
               syncLogs={[]}
             />
             <div className="mt-8 pt-6 border-t space-y-4">

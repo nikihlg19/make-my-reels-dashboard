@@ -13,6 +13,9 @@ import { sendAssignmentRequest } from '../../services/whatsapp';
 import type { SendResult } from '../../services/whatsapp';
 import { format, parseISO, addHours } from 'date-fns';
 import { buildRespondUrl } from '../../utils/respondUrl';
+import { checkRateLimit } from '../../utils/rateLimit';
+import { validateBody } from '../../utils/validateRequest';
+import { AssignmentCreateSchema } from '../../schemas';
 
 const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL!,
@@ -27,10 +30,15 @@ export default async function handler(req: any, res: any) {
   const admin = await verifyAdmin(req);
   if (!admin) return res.status(403).json({ error: 'Forbidden: admin access required' });
 
-  const { projectId, teamMemberId, roleNeeded, timeoutHours } = req.body || {};
-  if (!projectId || !teamMemberId || !roleNeeded) {
-    return res.status(400).json({ error: 'projectId, teamMemberId, and roleNeeded are required' });
+  // Rate limit: 5 assignment creates per minute
+  const allowed = await checkRateLimit(admin.userId || 'admin', 'assignment-create', 5, 60);
+  if (!allowed) {
+    return res.status(429).json({ error: 'Too many assignment requests. Please wait.' });
   }
+
+  const validated = validateBody(AssignmentCreateSchema, req, res);
+  if (!validated) return;
+  const { projectId, teamMemberId, roleNeeded, timeoutHours } = validated;
 
   const expireHours = Number(timeoutHours) || Number(process.env.ASSIGNMENT_TIMEOUT_HOURS) || 4;
 
