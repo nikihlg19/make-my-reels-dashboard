@@ -42,7 +42,7 @@ export default async function handler(req: any, res: any) {
 
   const { data: todaysShoots } = await supabaseAdmin
     .from('projects')
-    .select('id, title, location, event_date, event_time, client_name, status, team_members')
+    .select('id, title, location, event_date, event_time, status, team_member_ids, clients(name)')
     .eq('event_date', todayStr)
     .order('event_time', { ascending: true });
 
@@ -57,22 +57,22 @@ export default async function handler(req: any, res: any) {
   const twoDaysAgo = subDays(now, 2).toISOString();
   const { data: quoteFollowUps } = await supabaseAdmin
     .from('projects')
-    .select('id, title, client_name, created_at, status')
-    .eq('status', 'quote_sent')
+    .select('id, title, created_at, status, clients(name)')
+    .eq('status', 'Quote Sent')
     .lt('created_at', twoDaysAgo)
     .order('created_at', { ascending: true });
 
   const { data: overdueProjects } = await supabaseAdmin
     .from('projects')
-    .select('id, title, client_name, event_date, status')
+    .select('id, title, event_date, status, clients(name)')
     .lt('event_date', todayStr)
-    .not('status', 'in', '("completed","cancelled","delivered")')
+    .not('status', 'in', '("Completed","Expired")')
     .order('event_date', { ascending: true });
 
   const monthStart = format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd');
   const { data: monthProjects } = await supabaseAdmin
     .from('projects')
-    .select('total_amount, amount_paid, status')
+    .select('budget, invoice_amount, payment_status, status')
     .gte('event_date', monthStart);
 
   let revenueThisMonth = 0;
@@ -80,11 +80,13 @@ export default async function handler(req: any, res: any) {
   let revenueOutstanding = 0;
 
   for (const p of monthProjects || []) {
-    const total = Number(p.total_amount) || 0;
-    const paid = Number(p.amount_paid) || 0;
-    if (['completed', 'delivered'].includes(p.status)) {
-      revenueThisMonth += paid;
-      revenueOutstanding += total - paid;
+    const total = Number(p.invoice_amount) || Number(p.budget) || 0;
+    if (['Completed'].includes(p.status)) {
+      if (p.payment_status === 'paid') {
+        revenueThisMonth += total;
+      } else {
+        revenueOutstanding += total;
+      }
     } else {
       revenuePipeline += total;
     }
@@ -112,7 +114,7 @@ export default async function handler(req: any, res: any) {
 
   const { data: prefs } = await supabaseAdmin
     .from('notification_preferences')
-    .select('user_id, telegram_chat_id');
+    .select('user_id');
   const adminUserIds = (prefs || []).map((p: any) => p.user_id);
 
   const todayShootCount = (todaysShoots || []).length;
@@ -170,37 +172,6 @@ export default async function handler(req: any, res: any) {
       });
     } catch (e) {
       console.warn('[cron-daily-digest] WhatsApp send failed (non-fatal):', e);
-    }
-  }
-
-  // ── Telegram digest (admin users only) ───────────────────────────────────────
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  if (botToken) {
-    // Only send to users who are in adminUserIds AND have telegram linked
-    const telegramAdmins = (prefs || []).filter(
-      (p: any) => p.telegram_chat_id && adminUserIds.includes(p.user_id)
-    );
-    if (telegramAdmins.length > 0) {
-      const digestLines = [
-        `<b>Good morning! Daily briefing for ${format(now, 'd MMM')}</b>`,
-        '',
-        ...(summaryLines.length > 0 ? summaryLines : ['All clear — no urgent actions today.']),
-        '',
-        `Revenue this month: ${(revenueThisMonth / 1000).toFixed(1)}k`,
-      ];
-      const telegramText = digestLines.join('\n');
-
-      for (const u of telegramAdmins) {
-        try {
-          await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: u.telegram_chat_id, text: telegramText, parse_mode: 'HTML' }),
-          });
-        } catch (e) {
-          console.warn('[cron-daily-digest] Telegram send failed:', (e as any)?.message);
-        }
-      }
     }
   }
 

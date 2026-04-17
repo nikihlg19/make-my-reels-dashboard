@@ -241,6 +241,7 @@ CREATE TABLE public.project_assignments (
   team_member_id UUID NOT NULL REFERENCES public.team_members(id) ON DELETE CASCADE,
   role_needed TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending',   -- pending | wa_sent | accepted | declined | expired | cancelled
+  response_token TEXT DEFAULT gen_random_uuid()::text,  -- secure token for accept/decline URLs
   whatsapp_message_id TEXT,
   sent_at TIMESTAMPTZ,
   responded_at TIMESTAMPTZ,
@@ -382,6 +383,50 @@ CREATE INDEX idx_assignment_candidates_project ON public.assignment_candidates(p
 CREATE INDEX idx_team_availability_member ON public.team_availability(team_member_id);
 CREATE INDEX idx_team_availability_dates ON public.team_availability(unavailable_from, unavailable_to);
 CREATE INDEX idx_admin_digests_generated ON public.admin_digests(generated_at DESC);
+
+-- ============================================================
+-- CRON IDEMPOTENCY TABLE
+-- ============================================================
+
+CREATE TABLE public.cron_runs (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  cron_name TEXT NOT NULL,
+  run_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(cron_name, run_date)
+);
+
+-- No RLS — only accessed by service_role key from cron jobs
+
+-- ============================================================
+-- RATE LIMIT LOG (API throttling)
+-- ============================================================
+
+CREATE TABLE public.rate_limit_log (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  route TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_rate_limit_log_lookup ON public.rate_limit_log(user_id, route, created_at DESC);
+
+-- No RLS — only accessed by service_role key from API routes
+
+-- ============================================================
+-- DISTANCE CACHE (Google Maps API results, 7-day TTL)
+-- ============================================================
+
+CREATE TABLE public.distance_cache (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  origin TEXT NOT NULL,
+  destination TEXT NOT NULL,
+  result JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(origin, destination)
+);
+
+-- No RLS — only accessed by service_role key from API routes
 
 -- ============================================================
 -- PENDING APPROVALS (replaces Google Sheets approval queue)

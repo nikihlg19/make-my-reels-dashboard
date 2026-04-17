@@ -81,7 +81,7 @@ async function verifyAuth(req: any): Promise<{ userId: string } | null> {
 }
 
 // ─── WhatsApp helpers ─────────────────────────────────────────────────────────
-const BSP_API_URL = 'https://api.interakt.ai/v1/public/message/';
+const BSP_API_URL = process.env.WHATSAPP_BSP_API_URL || 'https://api.interakt.ai/v1/public/message/';
 const BSP_API_KEY = process.env.WHATSAPP_BSP_API_KEY || '';
 
 async function sendAssignmentRequest(params: {
